@@ -15,9 +15,9 @@ Nothing breaks. No error, no alert. The column is still complete, still unique, 
 
 ## Status
 
-**Part 1 of 6 is complete: the profiler.** This is the measurement engine — point it at data and get back a structured, privacy-safe description of what the values actually are.
+**Parts 1 and 2 of 6 are complete:** the profiler (measurement) and the contract engine (judgement). A contract can be generated from data and checked against live data today, from Python.
 
-The contract format, the diff engine, the CLI, the CI integrations and the hosted dashboard are still to come. What's here works and is tested, but the public command surface (`zeyvor init`, `zeyvor check`) does not exist yet.
+The CLI, the CI integrations and the hosted dashboard are still to come, so the command surface (`zeyvor init`, `zeyvor check`) does not exist yet — only the library beneath it.
 
 ## Install
 
@@ -25,7 +25,7 @@ The contract format, the diff engine, the CLI, the CI integrations and the hoste
 pip install zeyvor
 ```
 
-DuckDB is the only required dependency. Warehouse drivers are optional extras:
+DuckDB and PyYAML are the only required dependencies. Warehouse drivers are optional extras:
 
 ```bash
 pip install 'zeyvor[snowflake]'    # or [bigquery]
@@ -59,6 +59,69 @@ Or look at a profile by eye while developing:
 ```bash
 python -m zeyvor orders.csv
 ```
+
+## Contracts
+
+Capture what the data means today, commit it, and fail the build when the meaning changes.
+
+```python
+from zeyvor import profile_source
+from zeyvor.contract import check, dumps, generate_contract, loads
+
+# once, from a good day's data
+contract = generate_contract(profile_source("orders.csv"))
+open("zeyvor.yml", "w").write(dumps(contract))
+
+# then on every push
+report = check(profile_source("orders.csv"), loads(open("zeyvor.yml").read()))
+print(report.render())
+raise SystemExit(report.exit_code)
+```
+
+The generated file is meant to be read and edited in a pull request:
+
+```yaml
+tables:
+  orders:
+    columns:
+      signup_date:
+        means: Calendar date the customer signed up.
+        type: date
+        formats: ['####-##-##']
+        nullable: false
+        min: '2019-01-01'
+        max: today
+      status:
+        type: text
+        categories: [delivered, pending, refunded, shipped]
+        categories_closed: true
+      notes:
+        type: text
+        no_pii: true
+        known_issues: [mojibake]
+```
+
+**`zeyvor check` needs no API key.** A language model is used exactly once, at generation time, to write the `means` lines — and it may only ever *remove* an assertion it judges unsafe, never add one. Checking is templated and deterministic, so it is free, instant, identical between runs, and needs no secret in CI.
+
+**A generated contract always passes against the data it came from.** Every clause comes from measured evidence, and clauses that cannot be established are simply omitted: no closed category set unless the profile captured a complete one, no format rule on numbers (a digit count grows), no range on an identifier (an auto-incrementing id outgrows every ceiling), no uniqueness unless the column looks like a key. Pre-existing defects are recorded as `known_issues` rather than raised as news. There is a test for this on every fixture, and it is the most important test in the suite.
+
+**Tolerances everywhere.** `nullable: false` has `max_null_rate` beside it; `defaults: {on_violation: warn}` turns the whole contract into a report so a team can adopt it without breaking their pipeline on day one; `ignore: true` retires a check while keeping the intent visible in review.
+
+### What a violation reads like
+
+```
+✖ orders.signup_date — type_contaminated
+    Contract: calendar dates ('####-##-##')
+    Found:    97.0% date, 3.0% integer — 3 of 100 rows (3.0%) do not fit
+    Shapes present: ####-##-## (97), ########## (3)
+    → Fix the source. If the new values are legitimate, widen the contract to accept them.
+
+✖ orders.signup_date — epoch_suspected
+    Unix timestamps have appeared in a column of dates.
+    → Convert at the source, or widen the contract if the change is intended.
+```
+
+Twenty violation types, each with a default severity. `type_contaminated` is deliberately separate from `type_changed`: a column at 99.8% dates has *not* changed type, so equality checks pass it, and it is the case this exists to catch. Cascade suppression keeps one problem from producing five findings — a changed type silences the format, range and category clauses that follow from it.
 
 ## How it works
 
@@ -129,7 +192,7 @@ python -m venv .venv && .venv/bin/pip install -e '.[dev]'
 .venv/bin/python -m pytest
 ```
 
-221 tests, no network access required. Regenerate fixtures with `python tests/fixtures/generate.py`.
+368 tests, no network access required. Regenerate fixtures with `python tests/fixtures/generate.py`.
 
 Patterns are tested by executing them inside DuckDB rather than Python's `re`, which verifies both correctness and RE2 compatibility — the property that lets the same expression run on BigQuery and Snowflake.
 
@@ -150,13 +213,20 @@ Running the test suite is unaffected, since pytest is configured with `pythonpat
 ```
 src/zeyvor/
   engines/          where SQL runs: DuckDB, Snowflake, BigQuery + dialects
-  profile/
+  profile/          Part 1 — measurement
     models.py       the profile data model (the interface to everything downstream)
     sql.py          SQL generation — every measurement as an aggregate
     types.py        inference and findings, derived from counts alone
     patterns.py     the pattern library
     privacy.py      what may leave the machine
     profiler.py     orchestration
+  contract/         Part 2 — judgement
+    models.py       Contract / TableContract / ColumnContract
+    schema.py       zeyvor.yml read and write, with line-numbered errors
+    generate.py     profile -> contract; asserts only what evidence supports
+    diff.py         profile x contract -> violations (deterministic, offline)
+    violations.py   the taxonomy and how findings read
+    llm.py          the one place a model is used: writing `means`
   sources.py        source string → engine + relation
 ```
 

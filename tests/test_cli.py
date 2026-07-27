@@ -438,3 +438,171 @@ def test_debug_reraises(project, monkeypatch):
     monkeypatch.setattr("zeyvor.cli.commands.generate_contract", explode)
     with pytest.raises(RuntimeError):
         main(["init", "orders.csv", "--debug"])
+
+
+# ── output formats and publishing ─────────────────────────────────────────────
+
+
+def test_markdown_format_is_ready_to_paste_into_a_comment(project, capsys):
+    main(["init", "orders.csv"])
+    capsys.readouterr()
+    break_dates(project / "orders.csv")
+
+    assert main(["check", "--format", "markdown"]) == EXIT_VIOLATIONS
+    out = capsys.readouterr().out
+    assert out.startswith("<!-- zeyvor-report -->")
+    assert "| ❌ |" in out
+    assert "type_contaminated" in out
+
+
+def test_published_output_redacts_values_but_the_terminal_does_not(project, capsys):
+    """The same finding, two audiences. Only one of them is a publication."""
+    import shutil as _shutil
+
+    main(["init", "orders.csv"])
+    _shutil.copy(fixture_path("enum_drift.csv"), project / "orders.csv")
+    capsys.readouterr()
+
+    main(["check", "--format", "markdown"])
+    published = capsys.readouterr().out
+    main(["check"])
+    terminal = capsys.readouterr().out
+
+    assert "awaiting_pickup" in terminal, "a local terminal should show the value"
+    assert "awaiting_pickup" not in published, "a PR comment should not"
+    assert "value(s) not in the contract" in published
+
+
+def test_show_values_opts_back_in(project, capsys):
+    import shutil as _shutil
+
+    main(["init", "orders.csv"])
+    _shutil.copy(fixture_path("enum_drift.csv"), project / "orders.csv")
+    capsys.readouterr()
+
+    main(["check", "--format", "markdown", "--show-values"])
+    assert "awaiting_pickup" in capsys.readouterr().out
+
+
+def test_json_flag_still_works_as_shorthand(project, capsys):
+    main(["init", "orders.csv"])
+    capsys.readouterr()
+    assert main(["check", "--json"]) == EXIT_OK
+    json.loads(capsys.readouterr().out)
+
+
+def test_slack_is_posted_and_a_failure_there_does_not_mask_the_verdict(
+    project, capsys, monkeypatch
+):
+    """A broken webhook is an ops problem, not a data problem."""
+    posted = {}
+
+    def fake_post(url, payload, **kwargs):
+        posted["url"] = url
+        posted["payload"] = payload
+        raise RuntimeError("Slack said no")
+
+    monkeypatch.setattr("zeyvor.integrations.publish.post_to_slack", fake_post)
+    main(["init", "orders.csv"])
+    break_dates(project / "orders.csv")
+    capsys.readouterr()
+
+    code = main(["check", "--slack-webhook", "https://hooks.slack.test/x"])
+    assert posted["url"] == "https://hooks.slack.test/x"
+    assert code == EXIT_VIOLATIONS, "the data verdict must survive a Slack outage"
+    assert "could not post to Slack" in capsys.readouterr().err
+
+
+# ── dbt ───────────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def dbt_project(tmp_path, monkeypatch):
+    """A dbt manifest beside a DuckDB database standing in for the warehouse."""
+    import shutil as _shutil
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    _shutil.copy(fixture_path("dbt_manifest.json"), tmp_path / "manifest.json")
+    _shutil.copy(fixture_path("dbt_warehouse.duckdb"), tmp_path / "wh.duckdb")
+    return tmp_path
+
+
+DBT_ARGS = ["--dbt", "manifest.json", "--warehouse", "duckdb:///wh.duckdb"]
+
+
+def test_init_from_a_dbt_manifest_writes_one_file_per_model(dbt_project, capsys):
+    assert main(["init", *DBT_ARGS, "-o", "zeyvor/"]) == EXIT_OK
+
+    written = sorted(p.name for p in (dbt_project / "zeyvor").iterdir())
+    assert written == ["country_codes.yml", "customers.yml", "orders.yml"]
+    assert "3 contract file(s)" in capsys.readouterr().out
+
+
+def test_check_via_dbt(dbt_project, capsys):
+    main(["init", *DBT_ARGS, "-o", "zeyvor/"])
+    capsys.readouterr()
+    assert main(["check", *DBT_ARGS, "-c", "zeyvor/"]) == EXIT_OK
+    assert "3 tables" in capsys.readouterr().out
+
+
+def test_the_model_alias_is_what_gets_profiled(dbt_project, capsys):
+    """`customers` is built as `dim_customers`; checking `customers` would
+    silently check nothing."""
+    main(["init", *DBT_ARGS, "-o", "zeyvor/"])
+    err = capsys.readouterr().err
+    assert "analytics.dim_customers" in err
+
+
+def test_selecting_models_scopes_the_check(dbt_project, capsys):
+    """Narrowing is a request to check that model, not an assertion that the
+    others have vanished."""
+    main(["init", *DBT_ARGS, "-o", "zeyvor/"])
+    capsys.readouterr()
+
+    assert main(["check", *DBT_ARGS, "-c", "zeyvor/", "--models", "orders"]) == EXIT_OK
+    out = capsys.readouterr().out
+    assert "1 table" in out
+    assert "table_missing" not in out
+
+
+def test_a_dbt_check_catches_a_break(dbt_project, capsys):
+    import duckdb
+
+    main(["init", *DBT_ARGS, "-o", "zeyvor/"])
+    connection = duckdb.connect(str(dbt_project / "wh.duckdb"))
+    connection.execute(
+        "CREATE OR REPLACE TABLE analytics.orders AS SELECT order_id, customer_email, "
+        "CASE WHEN order_id < 1003 THEN '1714089600' ELSE CAST(signup_date AS VARCHAR) END "
+        "AS signup_date, status, amount, country, item_count FROM analytics.orders"
+    )
+    connection.close()
+    capsys.readouterr()
+
+    assert main(["check", *DBT_ARGS, "-c", "zeyvor/"]) == EXIT_VIOLATIONS
+    assert "type_contaminated" in capsys.readouterr().out
+
+
+def test_dbt_without_a_warehouse_explains_why(dbt_project, capsys):
+    assert main(["init", "--dbt", "manifest.json", "-o", "zeyvor/"]) == EXIT_ERROR
+    assert "--warehouse" in capsys.readouterr().err
+
+
+def test_a_missing_manifest_points_at_dbt(dbt_project, capsys):
+    # A contract has to exist first, or the missing contract is reported instead
+    # — which is the right precedence, since it is the more basic problem.
+    main(["init", *DBT_ARGS, "-o", "zeyvor/"])
+    capsys.readouterr()
+
+    assert (
+        main(["check", "--dbt", "nope.json", "--warehouse", "duckdb:///wh.duckdb", "-c", "zeyvor/"])
+        == EXIT_ERROR
+    )
+    assert "dbt compile" in capsys.readouterr().err
+
+
+def test_init_with_nothing_to_profile_says_so(project, capsys):
+    assert main(["init"]) == EXIT_ERROR
+    err = capsys.readouterr().err
+    assert "nothing to profile" in err
+    assert "--dbt" in err

@@ -18,7 +18,7 @@ from ..contract import (
     ContractError,
     Severity,
     check,
-    dumps,
+    dump,
     generate_contract,
     load,
 )
@@ -81,7 +81,40 @@ def _sources_from_contract(contract: Contract) -> list[tuple[str, str]]:
     return [(name, table.source) for name, table in contract.tables.items() if table.source]
 
 
+def _dbt_sources(args, console: Console) -> list[tuple[str, str]] | None:
+    """(table, source) pairs from a dbt manifest, or None if --dbt was not used."""
+    manifest_path = getattr(args, "dbt", None)
+    if not manifest_path:
+        return None
+    from ..integrations.dbt import DbtError, load_manifest, manifest_version, sources_for
+
+    try:
+        manifest = load_manifest(manifest_path)
+        pairs = sources_for(manifest, getattr(args, "warehouse", "") or "", select=args.models)
+    except DbtError as exc:
+        raise CliError(str(exc)) from None
+    console.step(f"dbt manifest {manifest_version(manifest)} — {len(pairs)} model(s)")
+    return pairs
+
+
 def _profile_for_check(args, contract: Contract, console: Console) -> list[TableProfile]:
+    dbt_pairs = _dbt_sources(args, console)
+    if dbt_pairs is not None:
+        profiles = []
+        for table_name, source in dbt_pairs:
+            if table_name not in contract.tables:
+                continue  # a model with no contract yet is not a failure
+            profile = _profile_one(source, args, console)
+            profile.name = table_name
+            profiles.append(profile)
+        if not profiles:
+            raise CliError(
+                "none of the selected dbt models appear in the contract",
+                "generate one first: zeyvor init --dbt target/manifest.json "
+                '--warehouse "..." -o zeyvor/',
+            )
+        return profiles
+
     if args.sources:
         profiles = [
             _profile_one(source, args, console, table=args.table) for source in args.sources
@@ -119,7 +152,22 @@ def cmd_init(args, console: Console) -> int:
             "pass --force to overwrite it, or --output to write elsewhere",
         )
 
-    profiles = [_profile_one(source, args, console, table=args.table) for source in args.sources]
+    dbt_pairs = _dbt_sources(args, console)
+    if dbt_pairs is not None:
+        profiles = []
+        for table_name, source in dbt_pairs:
+            profile = _profile_one(source, args, console)
+            profile.name = table_name
+            profiles.append(profile)
+    else:
+        if not args.sources:
+            raise CliError(
+                "nothing to profile",
+                "pass a source, or a dbt manifest: --dbt target/manifest.json",
+            )
+        profiles = [
+            _profile_one(source, args, console, table=args.table) for source in args.sources
+        ]
 
     describer = None
     if args.ai:
@@ -136,9 +184,10 @@ def cmd_init(args, console: Console) -> int:
 
     contract = generate_contract(profiles, describer=describer)
 
+    # dump() decides between one file and a directory of per-table files, so
+    # `-o zeyvor/` does the obvious thing for a project with many models.
     try:
-        with open(output, "w", encoding="utf-8") as handle:
-            handle.write(dumps(contract))
+        dump(contract, output)
     except OSError as exc:
         raise CliError(f"could not write {output}: {exc}") from None
 
@@ -158,7 +207,11 @@ def _report_what_was_written(
     # All of this is the command's result rather than narration, so it goes to a
     # single stream. Splitting it across stdout and stderr let the two buffers
     # interleave, and the success line surfaced after the summary it introduces.
-    console.success(f"Wrote {output}")
+    if os.path.isdir(output):
+        files = sorted(f for f in os.listdir(output) if f.endswith((".yml", ".yaml")))
+        console.success(f"Wrote {len(files)} contract file(s) to {output}")
+    else:
+        console.success(f"Wrote {output}")
     console.out("")
     console.out(f"  {len(contract.tables)} table(s), {len(columns)} columns")
     console.out(f"  {closed} with a closed category set")
@@ -178,18 +231,61 @@ def _report_what_was_written(
 # ── check ─────────────────────────────────────────────────────────────────────
 
 
+def _scope_to(contract: Contract, profiles: list[TableProfile]) -> Contract:
+    """Narrow a contract to the tables actually being checked.
+
+    Selecting explicitly — `--models orders`, or naming a source — is a request
+    to check that thing, not an assertion that nothing else exists. Without this,
+    `--models orders` reports the project's other forty models as missing.
+
+    A bare `zeyvor check` keeps the full contract, so a table that genuinely
+    cannot be profiled is still a failure.
+    """
+    names = {p.name for p in profiles}
+    return Contract(
+        version=contract.version,
+        generated_by=contract.generated_by,
+        generated_at=contract.generated_at,
+        defaults=contract.defaults,
+        tables={name: t for name, t in contract.tables.items() if name in names},
+    )
+
+
 def cmd_check(args, console: Console) -> int:
     contract = _load_contract(args)
     if args.warn_only:
         contract.defaults.on_violation = Severity.WARN
 
     profiles = _profile_for_check(args, contract, console)
+    if args.sources or getattr(args, "models", None):
+        contract = _scope_to(contract, profiles)
     report = check(profiles, contract)
 
-    if args.json:
-        console.out(json.dumps(report.to_dict(), indent=2))
+    payload = report.to_dict()
+    fmt = "json" if getattr(args, "json", False) else getattr(args, "format", "text")
+
+    if fmt == "json":
+        console.out(json.dumps(payload, indent=2))
+    elif fmt == "markdown":
+        from ..integrations.publish import to_markdown
+
+        console.out(to_markdown(payload, show_values=getattr(args, "show_values", False)))
     else:
         console.out(render_report(report, console))
+
+    webhook = getattr(args, "slack_webhook", None)
+    if webhook:
+        from ..integrations.publish import post_to_slack, to_slack_blocks
+
+        try:
+            post_to_slack(
+                webhook,
+                to_slack_blocks(payload, show_values=getattr(args, "show_values", False)),
+            )
+            console.step("posted to Slack")
+        except RuntimeError as exc:
+            # A failed notification must not mask the check's own verdict.
+            console.error(f"could not post to Slack: {exc}")
 
     if args.fail_on_warn and report.warnings:
         return 1
@@ -395,8 +491,7 @@ def cmd_accept(args, console: Console) -> int:
     if args.dry_run:
         console.out("Would change:")
     else:
-        with open(path, "w", encoding="utf-8") as handle:
-            handle.write(dumps(contract))
+        dump(contract, path)
         console.success(f"Updated {path}")
     for line in changes:
         console.out(line)

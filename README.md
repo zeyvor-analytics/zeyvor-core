@@ -15,9 +15,9 @@ Nothing breaks. No error, no alert. The column is still complete, still unique, 
 
 ## Status
 
-**Parts 1–3 of 6 are complete:** the profiler (measurement), the contract engine (judgement), and the command line. It is usable end to end today.
+**Parts 1–4 of 8 are complete:** the profiler, the contract engine, the command line, and the CI integrations. Usable end to end, in a terminal or on every push.
 
-Still to come: the CI integrations (GitHub Action, dbt) and the hosted dashboard.
+Still to come: the web presence, the hosted dashboard, cross-table (foreign key) checks, and a full audit.
 
 ## Install
 
@@ -73,6 +73,44 @@ Exit code `1`. Your build is red, on the day it broke, naming the column.
 Useful flags: `--json` for machine-readable output on stdout, `--warn-only` to report everything and still exit 0 (how a team adopts this without breaking their pipeline on day one), `--fail-on-warn` to go the other way, `--privacy strict` to let nothing recognisable leave the machine.
 
 Exit codes are part of the interface: `0` matched, `1` the data violated the contract, `2` the invocation failed. CI needs to tell a broken contract file from broken data.
+
+## In CI
+
+```yaml
+- uses: actions/checkout@v4
+- uses: zeyvor/zeyvor@v1
+    with:
+      contract: zeyvor.yml
+```
+
+That is the whole setup. **No API key** — checking never calls a model. Findings land in the job summary and in a single pull-request comment that is edited in place rather than reposted on every push.
+
+While adopting, `warn-only: true` reports everything and never fails the build.
+
+### dbt
+
+dbt already knows which tables exist and where. Point Zeyvor at the manifest and supply the connection once:
+
+```bash
+zeyvor init  --dbt target/manifest.json --warehouse "snowflake://ACCOUNT" -o zeyvor/
+zeyvor check --dbt target/manifest.json --warehouse "snowflake://ACCOUNT" -c zeyvor/
+```
+
+Seeds and snapshots are included; ephemeral models are skipped, since they are inlined as CTEs and have no table to check. A model's **alias** is used rather than its name — checking the wrong table would be a silent no-op. `--models orders customers` narrows, and narrowing scopes the check rather than reporting everything else as missing.
+
+With many models, `-o zeyvor/` writes one file per model, so a change to one model touches one file in review.
+
+Working examples for both are in [`examples/`](examples/).
+
+### What gets published
+
+A pull-request comment is a publication; your terminal is not. So published output **omits category values by default** — status names, plan tiers and region codes stay out of a comment on a public repo — and reports types, counts, shares and shapes instead. `--show-values` (or `show-values: true`) opts back in for private repositories.
+
+```
+❌  `signup_date`  `type_contaminated`  97.0% date, 3.0% integer — 3 of 100 rows do not fit
+```
+
+Slack works the same way: `zeyvor check --slack-webhook $URL`.
 
 Point it at almost anything:
 
@@ -197,7 +235,7 @@ python -m venv .venv && .venv/bin/pip install -e '.[dev]'
 .venv/bin/python -m pytest
 ```
 
-407 tests, no network access required. Regenerate fixtures with `python tests/fixtures/generate.py`.
+471 tests, no network access required. Regenerate fixtures with `python tests/fixtures/generate.py`.
 
 Patterns are tested by executing them inside DuckDB rather than Python's `re`, which verifies both correctness and RE2 compatibility — the property that lets the same expression run on BigQuery and Snowflake.
 
@@ -236,6 +274,9 @@ src/zeyvor/
     main.py         argument parsing, dispatch, exit codes
     commands.py     init / check / explain / accept / profile
     render.py       terminal output: colour, symbols, width
+  integrations/     Part 4 — other people's tools
+    dbt.py          manifest -> tables, read defensively across dbt versions
+    publish.py      markdown and Slack, with values redacted by default
   sources.py        source string → engine + relation
 ```
 

@@ -267,3 +267,167 @@ def test_dump_and_load_from_disk(tmp_path):
     dump(contract, str(path))
 
     assert load(str(path)).tables["orders"].columns["signup_date"].maximum == "today"
+
+
+# ── many files, one contract ──────────────────────────────────────────────────
+#
+# A dbt project with fifty models cannot share one file: every change would touch
+# every reviewer, and the pull-request diff would be unreadable.
+
+
+def write(tmp_path, name: str, body: str):
+    path = tmp_path / name
+    path.write_text(body)
+    return path
+
+
+def test_a_directory_of_files_loads_as_one_contract(tmp_path):
+    from zeyvor.contract import load
+
+    write(
+        tmp_path,
+        "orders.yml",
+        "version: 1\ntables:\n  orders:\n    columns:\n      id:\n        type: integer\n",
+    )
+    write(
+        tmp_path,
+        "customers.yml",
+        "version: 1\ntables:\n  customers:\n    columns:\n      email:\n        type: email\n",
+    )
+
+    contract = load(str(tmp_path))
+    assert set(contract.tables) == {"orders", "customers"}
+    assert contract.tables["customers"].columns["email"].type == "email"
+
+
+def test_non_yaml_files_in_the_directory_are_ignored(tmp_path):
+    from zeyvor.contract import load
+
+    write(
+        tmp_path,
+        "orders.yml",
+        "version: 1\ntables:\n  orders:\n    columns:\n      id:\n        type: integer\n",
+    )
+    write(tmp_path, "README.md", "not a contract")
+    write(tmp_path, "notes.txt", "also not")
+
+    assert set(load(str(tmp_path)).tables) == {"orders"}
+
+
+def test_a_table_described_twice_is_an_error(tmp_path):
+    """Otherwise which file wins depends on filename order."""
+    from zeyvor.contract import ContractError, load
+
+    write(
+        tmp_path,
+        "a.yml",
+        "version: 1\ntables:\n  orders:\n    columns:\n      id:\n        type: integer\n",
+    )
+    write(
+        tmp_path,
+        "b.yml",
+        "version: 1\ntables:\n  orders:\n    columns:\n      id:\n        type: text\n",
+    )
+
+    with pytest.raises(ContractError) as excinfo:
+        load(str(tmp_path))
+    message = str(excinfo.value)
+    assert "orders" in message and "a.yml" in message and "b.yml" in message
+
+
+def test_an_error_in_one_file_names_that_file(tmp_path):
+    """An error in one of fifty files must not start a hunt."""
+    from zeyvor.contract import ContractError, load
+
+    write(
+        tmp_path,
+        "good.yml",
+        "version: 1\ntables:\n  a:\n    columns:\n      id:\n        type: integer\n",
+    )
+    write(
+        tmp_path,
+        "broken.yml",
+        "version: 1\ntables:\n  b:\n    columns:\n      id:\n        nullible: false\n",
+    )
+
+    with pytest.raises(ContractError) as excinfo:
+        load(str(tmp_path))
+    assert "broken.yml" in str(excinfo.value)
+    assert "nullible" in str(excinfo.value)
+
+
+def test_conflicting_defaults_across_files_are_refused(tmp_path):
+    from zeyvor.contract import ContractError, load
+
+    write(
+        tmp_path,
+        "a.yml",
+        "version: 1\ndefaults:\n  on_violation: warn\ntables:\n  a:\n    columns:\n      id:\n        type: integer\n",
+    )
+    write(
+        tmp_path,
+        "b.yml",
+        "version: 1\ndefaults:\n  on_violation: ignore\ntables:\n  b:\n    columns:\n      id:\n        type: integer\n",
+    )
+
+    with pytest.raises(ContractError, match="different defaults"):
+        load(str(tmp_path))
+
+
+def test_defaults_from_one_file_apply_to_all(tmp_path):
+    from zeyvor.contract import Severity, load
+
+    write(
+        tmp_path,
+        "a.yml",
+        "version: 1\ndefaults:\n  on_violation: warn\ntables:\n  a:\n    columns:\n      id:\n        type: integer\n",
+    )
+    write(
+        tmp_path,
+        "b.yml",
+        "version: 1\ntables:\n  b:\n    columns:\n      id:\n        type: integer\n",
+    )
+
+    assert load(str(tmp_path)).defaults.on_violation is Severity.WARN
+
+
+def test_an_empty_directory_points_at_init(tmp_path):
+    from zeyvor.contract import ContractError, load
+
+    with pytest.raises(ContractError, match="zeyvor init"):
+        load(str(tmp_path))
+
+
+def test_writing_a_directory_makes_one_file_per_table(tmp_path):
+    from zeyvor.contract import dump, load, loads
+
+    contract = loads(
+        "version: 1\ntables:\n"
+        "  orders:\n    columns:\n      id:\n        type: integer\n"
+        "  customers:\n    columns:\n      email:\n        type: email\n"
+    )
+    dump(contract, str(tmp_path / "zeyvor"))
+
+    written = sorted(p.name for p in (tmp_path / "zeyvor").iterdir())
+    assert written == ["customers.yml", "orders.yml"]
+    assert set(load(str(tmp_path / "zeyvor")).tables) == {"orders", "customers"}
+
+
+def test_a_path_with_a_yaml_extension_stays_a_single_file(tmp_path):
+    from zeyvor.contract import dump, loads
+
+    contract = loads("version: 1\ntables:\n  a:\n    columns:\n      id:\n        type: integer\n")
+    target = tmp_path / "zeyvor.yml"
+    dump(contract, str(target))
+    assert target.is_file()
+
+
+def test_awkward_table_names_become_safe_filenames(tmp_path):
+    from zeyvor.contract import dump, loads
+
+    contract = loads(
+        'version: 1\ntables:\n  "prod/orders v2":\n    columns:\n      id:\n        type: integer\n'
+    )
+    dump(contract, str(tmp_path / "out"))
+    written = [p.name for p in (tmp_path / "out").iterdir()]
+    assert written == ["prod_orders_v2.yml"]

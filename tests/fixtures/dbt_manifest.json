@@ -1,0 +1,66 @@
+{
+  "metadata": {
+    "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v12.json",
+    "dbt_version": "1.8.7",
+    "project_name": "acme",
+    "adapter_type": "duckdb"
+  },
+  "nodes": {
+    "model.acme.orders": {
+      "resource_type": "model",
+      "name": "orders",
+      "database": "warehouse",
+      "schema": "analytics",
+      "alias": "orders",
+      "description": "One row per customer order.",
+      "config": {
+        "materialized": "table"
+      }
+    },
+    "model.acme.customers": {
+      "resource_type": "model",
+      "name": "customers",
+      "database": "warehouse",
+      "schema": "analytics",
+      "alias": "dim_customers",
+      "description": "",
+      "config": {
+        "materialized": "table"
+      }
+    },
+    "model.acme.int_helper": {
+      "resource_type": "model",
+      "name": "int_helper",
+      "database": "warehouse",
+      "schema": "analytics",
+      "alias": "int_helper",
+      "config": {
+        "materialized": "ephemeral"
+      }
+    },
+    "seed.acme.country_codes": {
+      "resource_type": "seed",
+      "name": "country_codes",
+      "database": "warehouse",
+      "schema": "analytics",
+      "alias": "country_codes",
+      "config": {
+        "materialized": "seed"
+      }
+    },
+    "test.acme.not_null_orders_id": {
+      "resource_type": "test",
+      "name": "not_null_orders_id",
+      "database": "warehouse",
+      "schema": "analytics_dbt_test__audit",
+      "config": {
+        "materialized": "test"
+      }
+    }
+  },
+  "sources": {},
+  "macros": {},
+  "docs": {},
+  "exposures": {},
+  "child_map": {}
+}

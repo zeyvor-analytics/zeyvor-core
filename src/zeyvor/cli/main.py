@@ -74,6 +74,27 @@ def _global_flags_parser() -> argparse.ArgumentParser:
     return parent
 
 
+def _add_dbt_options(parser: argparse.ArgumentParser) -> None:
+    group = parser.add_argument_group("dbt")
+    group.add_argument(
+        "--dbt",
+        nargs="?",
+        const="target/manifest.json",
+        metavar="MANIFEST",
+        help="Take tables from a dbt manifest (default: target/manifest.json)",
+    )
+    group.add_argument(
+        "--warehouse",
+        help='Connection the dbt models live in, e.g. "snowflake://ACCOUNT"',
+    )
+    group.add_argument(
+        "--models",
+        nargs="+",
+        metavar="NAME",
+        help="Limit to these dbt models",
+    )
+
+
 def _add_source_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--table", help="Table name, for database sources")
     parser.add_argument(
@@ -116,7 +137,9 @@ def build_parser() -> argparse.ArgumentParser:
             "ANTHROPIC_API_KEY is available; nothing else ever needs a key."
         ),
     )
-    init.add_argument("sources", nargs="+", help="Files, globs, URLs or database URIs")
+    init.add_argument(
+        "sources", nargs="*", help="Files, globs, URLs or database URIs (or use --dbt)"
+    )
     init.add_argument(
         "-o", "--output", default=DEFAULT_CONTRACT_PATH, help=f"Default: {DEFAULT_CONTRACT_PATH}"
     )
@@ -131,6 +154,7 @@ def build_parser() -> argparse.ArgumentParser:
     ai_group.add_argument(
         "--no-ai", dest="no_ai", action="store_true", help="Never contact a model"
     )
+    _add_dbt_options(init)
     _add_source_options(init)
     init.set_defaults(func=cmd_init)
 
@@ -150,13 +174,27 @@ def build_parser() -> argparse.ArgumentParser:
     check.add_argument(
         "-c", "--contract", default=DEFAULT_CONTRACT_PATH, help=f"Default: {DEFAULT_CONTRACT_PATH}"
     )
-    check.add_argument("--json", action="store_true", help="Machine-readable output on stdout")
+    check.add_argument(
+        "--format",
+        choices=["text", "json", "markdown"],
+        default="text",
+        help="text for a terminal, json for a pipe, markdown for a PR comment",
+    )
+    check.add_argument("--json", action="store_true", help="Shorthand for --format json")
+    check.add_argument(
+        "--show-values",
+        action="store_true",
+        help="Include category values in published output (off by default: a PR "
+        "comment is a publication, a terminal is not)",
+    )
+    check.add_argument("--slack-webhook", metavar="URL", help="Post the result to Slack")
     check.add_argument(
         "--warn-only",
         action="store_true",
         help="Report everything but always exit 0 (for a first adoption run)",
     )
     check.add_argument("--fail-on-warn", action="store_true", help="Treat warnings as failures too")
+    _add_dbt_options(check)
     _add_source_options(check)
     check.set_defaults(func=cmd_check)
 
@@ -199,6 +237,7 @@ def build_parser() -> argparse.ArgumentParser:
     accept.add_argument(
         "-n", "--dry-run", action="store_true", help="Show what would change, write nothing"
     )
+    _add_dbt_options(accept)
     _add_source_options(accept)
     accept.set_defaults(func=cmd_accept)
 

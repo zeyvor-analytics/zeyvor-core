@@ -15,6 +15,7 @@ no line wrapping mid-sentence, and a header explaining what the file is for.
 from __future__ import annotations
 
 import difflib
+import os
 from typing import Any
 
 import yaml
@@ -288,12 +289,71 @@ def loads(text: str) -> Contract:
 
 
 def load(path: str) -> Contract:
+    """Load a contract from a file, or from a directory of per-table files.
+
+    A dbt project with fifty models cannot share one file: every change would
+    touch every reviewer, and the diff on a pull request would be unreadable. So
+    a directory of `<table>.yml` is equally valid, and the single-file form stays
+    the natural shape for one table.
+    """
+    if os.path.isdir(path):
+        return load_directory(path)
     try:
         with open(path, encoding="utf-8") as handle:
             text = handle.read()
     except FileNotFoundError:
         raise ContractError(f"No contract at {path}. Create one with: zeyvor init") from None
     return loads(text)
+
+
+def load_directory(path: str) -> Contract:
+    """Merge every `*.yml` in a directory into one contract."""
+    entries = sorted(name for name in os.listdir(path) if name.endswith((".yml", ".yaml")))
+    if not entries:
+        raise ContractError(f"No contract files in {path}. Create one with: zeyvor init")
+
+    merged: Contract | None = None
+    origin: dict[str, str] = {}
+    defaults_from: str | None = None
+
+    for name in entries:
+        full = os.path.join(path, name)
+        with open(full, encoding="utf-8") as handle:
+            try:
+                part = loads(handle.read())
+            except ContractError as exc:
+                # Name the file, or an error in one of fifty is a hunt.
+                raise ContractError(f"{name}: {exc}") from None
+
+        if merged is None:
+            merged = part
+            origin = dict.fromkeys(part.tables, name)
+            if part.defaults.on_violation is not Severity.FAIL:
+                defaults_from = name
+            continue
+
+        for table_name, table in part.tables.items():
+            if table_name in merged.tables:
+                raise ContractError(
+                    f"Table '{table_name}' is described twice: "
+                    f"in {origin[table_name]} and in {name}."
+                )
+            merged.tables[table_name] = table
+            origin[table_name] = name
+
+        # Conflicting defaults across files would make behaviour depend on
+        # filename order, so refuse rather than pick one.
+        if part.defaults.on_violation is not Severity.FAIL:
+            if defaults_from and part.defaults.on_violation is not merged.defaults.on_violation:
+                raise ContractError(
+                    f"{defaults_from} and {name} set different defaults.on_violation."
+                )
+            merged.defaults = part.defaults
+            defaults_from = defaults_from or name
+        merged.version = max(merged.version, part.version)
+
+    assert merged is not None
+    return merged
 
 
 # ── dumping ───────────────────────────────────────────────────────────────────
@@ -380,8 +440,51 @@ def dumps(contract: Contract, *, header: bool = True) -> str:
 
 
 def dump(contract: Contract, path: str, *, header: bool = True) -> None:
+    """Write to a file, or to a directory of per-table files.
+
+    A path with no YAML extension is treated as a directory, which makes
+    `zeyvor init -o zeyvor/` do the obvious thing.
+    """
+    if _looks_like_directory(path):
+        dump_directory(contract, path, header=header)
+        return
     with open(path, "w", encoding="utf-8") as handle:
         handle.write(dumps(contract, header=header))
 
 
-__all__ = ["ContractError", "loads", "load", "dumps", "dump", "HEADER"]
+def _looks_like_directory(path: str) -> bool:
+    return (
+        os.path.isdir(path) or path.endswith(("/", os.sep)) or not path.endswith((".yml", ".yaml"))
+    )
+
+
+def dump_directory(contract: Contract, path: str, *, header: bool = True) -> list[str]:
+    """One file per table, so a change to one model touches one file."""
+    os.makedirs(path, exist_ok=True)
+    written: list[str] = []
+    for name, table in contract.tables.items():
+        single = Contract(
+            version=contract.version,
+            generated_by=contract.generated_by,
+            generated_at=contract.generated_at,
+            defaults=contract.defaults,
+            tables={name: table},
+        )
+        safe = "".join(c if (c.isalnum() or c in "_-.") else "_" for c in name) or "table"
+        target = os.path.join(path, f"{safe}.yml")
+        with open(target, "w", encoding="utf-8") as handle:
+            handle.write(dumps(single, header=header))
+        written.append(target)
+    return written
+
+
+__all__ = [
+    "ContractError",
+    "loads",
+    "load",
+    "load_directory",
+    "dumps",
+    "dump",
+    "dump_directory",
+    "HEADER",
+]

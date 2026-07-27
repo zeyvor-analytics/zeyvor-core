@@ -1,0 +1,154 @@
+name: Zeyvor data contract check
+description: Fail the build when your data stops meaning what your schema says it means.
+author: Zeyvor
+branding:
+  icon: shield
+  color: orange
+
+inputs:
+  contract:
+    description: Contract file, or a directory of per-table contracts.
+    default: zeyvor.yml
+  sources:
+    description: Space-separated sources. Defaults to the ones recorded in the contract.
+    default: ""
+  dbt:
+    description: Path to a dbt manifest.json. Takes the tables from dbt instead.
+    default: ""
+  warehouse:
+    description: 'Connection the dbt models live in, e.g. snowflake://ACCOUNT'
+    default: ""
+  models:
+    description: Space-separated dbt model names to limit the check to.
+    default: ""
+  warn-only:
+    description: Report everything but never fail the job. How to adopt this safely.
+    default: "false"
+  fail-on-warn:
+    description: Treat warnings as failures too.
+    default: "false"
+  show-values:
+    description: >-
+      Include category values in the pull-request comment. Off by default: a
+      comment is a publication, and values like plan tiers or region codes do
+      not belong in one on a public repository.
+    default: "false"
+  comment:
+    description: Post (and update) a single pull-request comment with the result.
+    default: "true"
+  privacy:
+    description: strict, masked or full. Controls what leaves the machine at all.
+    default: masked
+  version:
+    description: Version of zeyvor to install. Defaults to the latest release.
+    default: ""
+  python-version:
+    description: Python used to run the check.
+    default: "3.12"
+
+outputs:
+  failed:
+    description: Number of failing findings.
+    value: ${{ steps.check.outputs.failed }}
+  warned:
+    description: Number of warnings.
+    value: ${{ steps.check.outputs.warned }}
+  ok:
+    description: "true when the data matched the contract."
+    value: ${{ steps.check.outputs.ok }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    # A composite action rather than a Docker one: installing two wheels takes
+    # seconds, where pulling an image would dominate the runtime of the check
+    # itself.
+    - name: Install zeyvor
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.version }}" ]; then
+          python -m pip install --quiet "zeyvor==${{ inputs.version }}"
+        else
+          python -m pip install --quiet zeyvor
+        fi
+        zeyvor --version
+
+    - name: Check
+      id: check
+      shell: bash
+      run: |
+        set +e
+        ARGS=""
+        [ -n "${{ inputs.contract }}"  ] && ARGS="$ARGS --contract ${{ inputs.contract }}"
+        [ -n "${{ inputs.dbt }}"       ] && ARGS="$ARGS --dbt ${{ inputs.dbt }}"
+        [ -n "${{ inputs.warehouse }}" ] && ARGS="$ARGS --warehouse ${{ inputs.warehouse }}"
+        [ -n "${{ inputs.models }}"    ] && ARGS="$ARGS --models ${{ inputs.models }}"
+        [ "${{ inputs.warn-only }}"    = "true" ] && ARGS="$ARGS --warn-only"
+        [ "${{ inputs.fail-on-warn }}" = "true" ] && ARGS="$ARGS --fail-on-warn"
+        [ -n "${{ inputs.privacy }}"   ] && ARGS="$ARGS --privacy ${{ inputs.privacy }}"
+        SHOW=""
+        [ "${{ inputs.show-values }}" = "true" ] && SHOW="--show-values"
+
+        # Three renderings of one run: the log for a human scrolling, JSON for
+        # the outputs, markdown for the summary and the comment.
+        zeyvor check $ARGS ${{ inputs.sources }}
+        EXIT=$?
+
+        zeyvor check $ARGS ${{ inputs.sources }} --format json  --quiet > zeyvor-report.json  2>/dev/null
+        zeyvor check $ARGS ${{ inputs.sources }} --format markdown $SHOW --quiet > zeyvor-report.md 2>/dev/null
+
+        {
+          echo "exit-code=$EXIT"
+          python - <<'PY'
+        import json, os
+        with open("zeyvor-report.json") as handle:
+            report = json.load(handle)
+        with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+            out.write(f"failed={report.get('failed', 0)}\n")
+            out.write(f"warned={report.get('warned', 0)}\n")
+            out.write(f"ok={str(report.get('ok', False)).lower()}\n")
+        PY
+        } >> "$GITHUB_OUTPUT"
+        exit 0
+
+    # Findings have no file or line, so annotations do not fit. The job summary
+    # is where someone looking at a red build already lands.
+    - name: Job summary
+      shell: bash
+      run: cat zeyvor-report.md >> "$GITHUB_STEP_SUMMARY"
+
+    # One comment, edited in place. A new comment per push turns a week of
+    # iteration into forty notifications.
+    - name: Comment on the pull request
+      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        PR: ${{ github.event.pull_request.number }}
+        REPO: ${{ github.repository }}
+      run: |
+        EXISTING=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+          --jq 'map(select(.body | contains("<!-- zeyvor-report -->"))) | .[0].id // empty')
+        if [ -n "$EXISTING" ]; then
+          gh api --method PATCH "repos/$REPO/issues/comments/$EXISTING" \
+            -F body=@zeyvor-report.md > /dev/null
+          echo "updated comment $EXISTING"
+        else
+          gh api --method POST "repos/$REPO/issues/$PR/comments" \
+            -F body=@zeyvor-report.md > /dev/null
+          echo "posted a new comment"
+        fi
+
+    - name: Fail the job if the data did
+      shell: bash
+      run: |
+        CODE="${{ steps.check.outputs.exit-code }}"
+        if [ "$CODE" = "2" ]; then
+          echo "::error::zeyvor could not run — check the contract path and inputs."
+        fi
+        exit "$CODE"

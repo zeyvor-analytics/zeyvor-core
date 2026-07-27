@@ -87,9 +87,7 @@ def _rate(numerator: int | None, denominator: int | None) -> float | None:
 def _prune(data: dict[str, Any]) -> dict[str, Any]:
     """Drop empty values so profiles stay readable as committed artefacts."""
     return {
-        k: v
-        for k, v in data.items()
-        if v is not None and v != [] and v != {} and v is not False
+        k: v for k, v in data.items() if v is not None and v != [] and v != {} and v is not False
     }
 
 
@@ -127,7 +125,7 @@ class NumericStats:
         )
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "NumericStats":
+    def from_dict(cls, data: dict[str, Any]) -> NumericStats:
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
@@ -155,7 +153,7 @@ class TextStats:
         )
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TextStats":
+    def from_dict(cls, data: dict[str, Any]) -> TextStats:
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
@@ -179,7 +177,7 @@ class TemporalStats:
         )
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TemporalStats":
+    def from_dict(cls, data: dict[str, Any]) -> TemporalStats:
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
@@ -195,7 +193,7 @@ class ShapeBucket:
         return _prune({"shape": self.shape, "count": self.count, "rate": self.rate})
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ShapeBucket":
+    def from_dict(cls, data: dict[str, Any]) -> ShapeBucket:
         return cls(shape=data["shape"], count=data["count"], rate=data.get("rate"))
 
 
@@ -209,7 +207,7 @@ class EnumMember:
         return _prune({"value": self.value, "count": self.count, "rate": self.rate})
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "EnumMember":
+    def from_dict(cls, data: dict[str, Any]) -> EnumMember:
         return cls(value=data["value"], count=data["count"], rate=data.get("rate"))
 
 
@@ -237,7 +235,7 @@ class EnumProfile:
         )
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "EnumProfile":
+    def from_dict(cls, data: dict[str, Any]) -> EnumProfile:
         return cls(
             members=[EnumMember.from_dict(m) for m in data.get("members", [])],
             complete=bool(data.get("complete", False)),
@@ -343,7 +341,7 @@ class ColumnProfile:
 
         return [k for k in self.pattern_hits if k in PII_KEYS and self.pattern_hits[k] > 0]
 
-    def has(self, observation: "Observation | str") -> bool:
+    def has(self, observation: Observation | str) -> bool:
         key = observation.value if isinstance(observation, Observation) else observation
         return key in self.observations
 
@@ -382,7 +380,7 @@ class ColumnProfile:
         )
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ColumnProfile":
+    def from_dict(cls, data: dict[str, Any]) -> ColumnProfile:
         return cls(
             name=data["name"],
             position=int(data.get("position", 0)),
@@ -443,7 +441,7 @@ class TableProfile:
         except KeyError:
             return None
 
-    def columns_with(self, observation: "Observation | str") -> list[ColumnProfile]:
+    def columns_with(self, observation: Observation | str) -> list[ColumnProfile]:
         return [c for c in self.columns if c.has(observation)]
 
     def fingerprint(self) -> str:
@@ -491,7 +489,7 @@ class TableProfile:
         )
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TableProfile":
+    def from_dict(cls, data: dict[str, Any]) -> TableProfile:
         return cls(
             name=data.get("name", ""),
             source_uri=data.get("source_uri", ""),
@@ -512,7 +510,7 @@ class TableProfile:
         return json.dumps(self.to_dict(), indent=indent, ensure_ascii=False)
 
     @classmethod
-    def from_json(cls, raw: str) -> "TableProfile":
+    def from_json(cls, raw: str) -> TableProfile:
         return cls.from_dict(json.loads(raw))
 
     def save(self, path: str) -> None:
@@ -520,7 +518,7 @@ class TableProfile:
             handle.write(self.to_json())
 
     @classmethod
-    def load(cls, path: str) -> "TableProfile":
+    def load(cls, path: str) -> TableProfile:
         with open(path, encoding="utf-8") as handle:
             return cls.from_json(handle.read())
 

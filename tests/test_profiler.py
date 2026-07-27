@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import pytest
 
+from helpers import fixture_path
 from zeyvor import DuckDBEngine
 from zeyvor.engines.base import Relation
 from zeyvor.profile import InferredType, Observation, PrivacyMode, ProfileOptions, Profiler
 from zeyvor.profile.models import TableProfile
 from zeyvor.sources import resolve_source
-
-from helpers import fixture_path
 
 
 class RecordingEngine(DuckDBEngine):
@@ -156,8 +155,9 @@ def test_high_cardinality_columns_are_not_categories(profile_fixture):
 
 
 def test_enum_completeness_reflects_truncation(profile_fixture):
-    profile = profile_fixture("enum_drift.csv", ProfileOptions(enum_member_limit=2,
-                                                              max_enum_cardinality=2))
+    profile = profile_fixture(
+        "enum_drift.csv", ProfileOptions(enum_member_limit=2, max_enum_cardinality=2)
+    )
     status = profile.column("status")
     # Cardinality (5) exceeds the cap, so no category set should be claimed.
     assert status.enum is None
@@ -194,8 +194,8 @@ def test_no_samples_are_collected_by_default():
 
 
 def test_query_count_does_not_scale_with_column_count(profile_fixture):
-    narrow = profile_fixture("clean_orders.csv")           # 7 columns
-    wide = profile_fixture("wide.csv")                     # 60 columns
+    narrow = profile_fixture("clean_orders.csv")  # 7 columns
+    wide = profile_fixture("wide.csv")  # 60 columns
     assert narrow.query_count <= 8
     assert wide.query_count <= 16, "wide tables must not cost a query per column"
 
@@ -268,7 +268,7 @@ def test_json_round_trip(profile_fixture):
     assert restored.row_count == profile.row_count
     assert restored.column_count == profile.column_count
     assert restored.fingerprint() == profile.fingerprint()
-    for original, copy in zip(profile.columns, restored.columns):
+    for original, copy in zip(profile.columns, restored.columns, strict=True):
         assert copy.name == original.name
         assert copy.inferred_type is original.inferred_type
         assert copy.observations == original.observations

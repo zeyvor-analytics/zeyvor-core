@@ -80,7 +80,9 @@ def scalar_stats_sql(
         num = dialect.try_cast(v, dialect.float_type)
         ts = dialect.try_cast(v, dialect.timestamp_type)
 
-        def add(metric: str, expression: str, _layout: ColumnLayout = layout, _i: int = index) -> None:
+        def add(
+            metric: str, expression: str, _layout: ColumnLayout = layout, _i: int = index
+        ) -> None:
             select_parts.append(f"{expression} AS c{_i}__{metric}")
             _layout.metrics.append(metric)
 
@@ -107,7 +109,10 @@ def scalar_stats_sql(
         add("probe_" + PROBE_FLOAT, dialect.sum_case(f"{num} IS NOT NULL"))
         bool_vocab = "('true','false','t','f','yes','no','y','n','0','1')"
         add("probe_" + PROBE_BOOL, dialect.sum_case(f"{dialect.lower(v)} IN {bool_vocab}"))
-        add("probe_" + PROBE_DATE, dialect.sum_case(f"{dialect.try_cast(v, dialect.date_type)} IS NOT NULL"))
+        add(
+            "probe_" + PROBE_DATE,
+            dialect.sum_case(f"{dialect.try_cast(v, dialect.date_type)} IS NOT NULL"),
+        )
         add("probe_" + PROBE_TIMESTAMP, dialect.sum_case(f"{ts} IS NOT NULL"))
 
         # ── pattern counts ────────────────────────────────────────────────────

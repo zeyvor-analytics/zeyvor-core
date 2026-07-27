@@ -8,6 +8,7 @@ profiling runs as aggregates over the source.
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 from .base import DuckDBDialect, Engine, EngineError, Relation
@@ -42,9 +43,7 @@ class DuckDBEngine(Engine):
         try:
             import duckdb  # noqa: PLC0415 - optional-at-import-time by design
         except ImportError as exc:  # pragma: no cover
-            raise EngineError(
-                "duckdb is required. Install with: pip install zeyvor"
-            ) from exc
+            raise EngineError("duckdb is required. Install with: pip install zeyvor") from exc
 
         self.dialect = DuckDBDialect()
         self._duckdb = duckdb
@@ -56,17 +55,13 @@ class DuckDBEngine(Engine):
         # A library must not write to its caller's stdout. DuckDB draws a
         # progress bar for long queries, which corrupts piped JSON output and
         # anything a CI job is parsing.
-        try:
+        with contextlib.suppress(Exception):  # pragma: no cover - older builds lack it
             self._conn.execute("SET enable_progress_bar = false")
-        except Exception:  # pragma: no cover - older builds lack the setting
-            pass
 
         if threads:
             self._conn.execute(f"SET threads TO {int(threads)}")
         if memory_limit:
-            safe_limit = "".join(
-                c for c in str(memory_limit) if c.isalnum() or c in ".%_ "
-            ).strip()
+            safe_limit = "".join(c for c in str(memory_limit) if c.isalnum() or c in ".%_ ").strip()
             self._conn.execute(f"SET memory_limit = '{safe_limit}'")
 
         for ext in extensions:
@@ -78,11 +73,9 @@ class DuckDBEngine(Engine):
     # ── setup helpers ─────────────────────────────────────────────────────────
 
     def _load_extension(self, name: str) -> None:
-        try:
+        # Already installed, or offline with a bundled copy — LOAD decides.
+        with contextlib.suppress(Exception):
             self._conn.execute(f"INSTALL {name}")
-        except Exception:
-            # Already installed, or offline with a bundled copy — LOAD decides.
-            pass
         try:
             self._conn.execute(f"LOAD {name}")
         except Exception as exc:
@@ -121,7 +114,5 @@ class DuckDBEngine(Engine):
         return [(str(r[0]), str(r[1])) for r in rows]
 
     def close(self) -> None:
-        try:
+        with contextlib.suppress(Exception):  # pragma: no cover
             self._conn.close()
-        except Exception:  # pragma: no cover
-            pass

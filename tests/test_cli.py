@@ -30,7 +30,8 @@ def break_dates(path, *, rows: int = 3) -> None:
     """Simulate the upstream change: some dates arrive as epoch timestamps."""
     import csv
 
-    data = list(csv.reader(open(path)))
+    with open(path) as handle:
+        data = list(csv.reader(handle))
     head, body = data[0], data[1:]
     index = head.index("signup_date")
     for row in body[:rows]:

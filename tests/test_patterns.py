@@ -18,14 +18,14 @@ DIALECT = DuckDBDialect()
 CASES = [
     # ── the flagship discriminator ────────────────────────────────────────────
     ("epoch_seconds", "1714089600", True),
-    ("epoch_seconds", "5551234567", False),   # 10-digit phone must not match
-    ("epoch_seconds", "171408960", False),    # 9 digits
+    ("epoch_seconds", "5551234567", False),  # 10-digit phone must not match
+    ("epoch_seconds", "171408960", False),  # 9 digits
     ("epoch_seconds", "2024-03-11", False),
     ("epoch_millis", "1714089600000", True),
     ("epoch_millis", "1714089600", False),
     # ── Excel serials ─────────────────────────────────────────────────────────
     ("excel_serial", "45231", True),
-    ("excel_serial", "12345", False),         # out of the 20000-59999 window
+    ("excel_serial", "12345", False),  # out of the 20000-59999 window
     ("excel_serial", "4523", False),
     # ── date formats ──────────────────────────────────────────────────────────
     ("iso_date", "2024-03-11", True),
@@ -58,7 +58,7 @@ CASES = [
     ("json_object", "plain text", False),
     ("url", "https://zeyvor.com/docs", True),
     ("url", "zeyvor.com", False),
-    ("null_word", "N/A", True),               # lower-cased before matching
+    ("null_word", "N/A", True),  # lower-cased before matching
     ("null_word", "NULL", True),
     ("null_word", "-", True),
     ("null_word", "nothing", False),
@@ -67,19 +67,19 @@ CASES = [
     # ── PII ───────────────────────────────────────────────────────────────────
     ("email", "ada@example.com", True),
     ("email", "ada@example", False),
-    ("email", "contact ada@example.com now", False),   # full match only
+    ("email", "contact ada@example.com now", False),  # full match only
     ("email_embedded", "contact ada@example.com now", True),
     ("email_embedded", "no address here", False),
     ("phone_formatted", "555-123-4567", True),
     ("phone_formatted", "(555) 123-4567", True),
     ("phone_formatted", "555.123.4567", True),
-    ("phone_formatted", "11.03.2024", False),          # a date is not a phone
-    ("phone_formatted", "1714089600", False),          # nor is a timestamp
+    ("phone_formatted", "11.03.2024", False),  # a date is not a phone
+    ("phone_formatted", "1714089600", False),  # nor is a timestamp
     ("phone_international", "+44 20 7123 4567", True),
     ("phone_international", "5551234567", False),
     ("ssn", "123-45-6789", True),
     ("credit_card", "4111 1111 1111 1111", True),
-    ("credit_card", "4111111111111111", False),        # separators required
+    ("credit_card", "4111111111111111", False),  # separators required
     ("ipv4", "192.168.1.1", True),
     ("iban", "GB29NWBK60161331926819", True),
     # postal_like is recorded but must never be classed as PII
@@ -111,7 +111,7 @@ def test_postal_like_is_not_pii():
 
 
 def test_pii_keys_are_the_expected_set():
-    assert PII_KEYS == {
+    assert {
         "email",
         "email_embedded",
         "phone_formatted",
@@ -120,7 +120,7 @@ def test_pii_keys_are_the_expected_set():
         "credit_card",
         "ipv4",
         "iban",
-    }
+    } == PII_KEYS
 
 
 SHAPE_CASES = [

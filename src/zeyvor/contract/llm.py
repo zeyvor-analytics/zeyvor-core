@@ -115,9 +115,8 @@ def build_prompt(profile: TableProfile, table: TableContract) -> str:
             if column.name in table.columns
         ],
     }
-    return (
-        "Document this table. Return only the JSON.\n\n"
-        + json.dumps(payload, indent=2, ensure_ascii=False)
+    return "Document this table. Return only the JSON.\n\n" + json.dumps(
+        payload, indent=2, ensure_ascii=False
     )
 
 

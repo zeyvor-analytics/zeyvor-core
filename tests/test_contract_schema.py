@@ -253,7 +253,7 @@ def test_defaults_are_omitted_rather_than_restated():
     )
     text = dumps(contract, header=False)
 
-    assert "defaults" not in text          # fail is the default
+    assert "defaults" not in text  # fail is the default
     assert "allow_new_columns" not in text  # true is the default
     assert "ignore" not in text
     assert "no_pii" not in text

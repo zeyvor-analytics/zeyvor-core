@@ -142,8 +142,7 @@ class _Validator:
             return {}
         if not isinstance(value, dict):
             raise ContractError(
-                f"{what} must be a mapping, got {type(value).__name__}"
-                f"{self.at(path)}"
+                f"{what} must be a mapping, got {type(value).__name__}{self.at(path)}"
             )
         return value
 
@@ -160,9 +159,7 @@ class _Validator:
         if value is None:
             return None
         if not isinstance(value, bool):
-            raise ContractError(
-                f"{what} must be true or false, got {value!r}{self.at(path)}"
-            )
+            raise ContractError(f"{what} must be true or false, got {value!r}{self.at(path)}")
         return value
 
     def number(self, value: Any, path: tuple[str, ...], what: str) -> float | None:
@@ -295,9 +292,7 @@ def load(path: str) -> Contract:
         with open(path, encoding="utf-8") as handle:
             text = handle.read()
     except FileNotFoundError:
-        raise ContractError(
-            f"No contract at {path}. Create one with: zeyvor init"
-        ) from None
+        raise ContractError(f"No contract at {path}. Create one with: zeyvor init") from None
     return loads(text)
 
 

@@ -245,9 +245,8 @@ def derive_observations(
         ranked = sorted(mixture.items(), key=lambda kv: kv[1], reverse=True)
         if len(ranked) >= 2 and ranked[1][1] >= thresholds.minority_type:
             add(Observation.MIXED_TYPES.value)
-    if column.inferred_type is InferredType.MIXED:
-        if Observation.MIXED_TYPES.value not in out:
-            add(Observation.MIXED_TYPES.value)
+    if column.inferred_type is InferredType.MIXED and Observation.MIXED_TYPES.value not in out:
+        add(Observation.MIXED_TYPES.value)
 
     # ── declared vs inferred ──────────────────────────────────────────────────
     declared = declared_family(column.declared_type)
@@ -274,8 +273,13 @@ def derive_observations(
         declared not in ("unknown", "other", "text")
         and inferred != "text"
         and declared != inferred
-        and not (declared, inferred) in {("integer", "float"), ("float", "integer"),
-                                         ("date", "timestamp"), ("timestamp", "date")}
+        and (declared, inferred)
+        not in {
+            ("integer", "float"),
+            ("float", "integer"),
+            ("date", "timestamp"),
+            ("timestamp", "date"),
+        }
     ):
         add(Observation.DECLARED_TYPE_CONFLICT.value)
 
@@ -288,19 +292,23 @@ def derive_observations(
     # plenty of identifiers look like that, so it takes near-unanimity.
     epoch_share = max(p("epoch_seconds"), p("epoch_millis"))
     temporal_share = max(p("iso_date"), p("iso_datetime"), p("us_date"), p("eu_date"))
-    if epoch_share > 0:
-        if temporal_share >= thresholds.pattern_trace:
-            add(Observation.EPOCH_SUSPECTED.value)
-        elif epoch_share >= thresholds.pattern_dominant:
-            add(Observation.EPOCH_SUSPECTED.value)
+    if epoch_share > 0 and (
+        temporal_share >= thresholds.pattern_trace or epoch_share >= thresholds.pattern_dominant
+    ):
+        add(Observation.EPOCH_SUSPECTED.value)
 
     # Excel serials are ambiguous with ordinary five-digit numbers, so they are
     # only reported alongside a temporal signal or when they account for the
     # whole column.
     excel_share = p("excel_serial")
-    if excel_share > 0 and column.inferred_type is InferredType.INTEGER:
-        if temporal_share >= thresholds.pattern_trace or excel_share >= thresholds.pattern_dominant:
-            add(Observation.EXCEL_SERIAL_SUSPECTED.value)
+    if (
+        excel_share > 0
+        and column.inferred_type is InferredType.INTEGER
+        and (
+            temporal_share >= thresholds.pattern_trace or excel_share >= thresholds.pattern_dominant
+        )
+    ):
+        add(Observation.EXCEL_SERIAL_SUSPECTED.value)
 
     date_formats = [
         key

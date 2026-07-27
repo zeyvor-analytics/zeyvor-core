@@ -87,17 +87,13 @@ def test_the_prompt_states_which_clauses_are_proposed(profile_fixture):
 
 
 def test_a_well_formed_reply_parses():
-    parsed = parse_response(
-        '{"columns": {"a": {"means": "First.", "unsafe": ["unique"]}}}'
-    )
+    parsed = parse_response('{"columns": {"a": {"means": "First.", "unsafe": ["unique"]}}}')
     assert parsed["a"]["means"] == "First."
     assert parsed["a"]["unsafe"] == ["unique"]
 
 
 def test_markdown_fences_and_chatter_are_tolerated():
-    parsed = parse_response(
-        'Sure! ```json\n{"columns": {"a": {"means": "First."}}}\n```'
-    )
+    parsed = parse_response('Sure! ```json\n{"columns": {"a": {"means": "First."}}}\n```')
     assert parsed["a"]["means"] == "First."
 
 
@@ -167,7 +163,7 @@ def test_the_model_cannot_add_an_assertion(profile_fixture):
 
 
 def test_only_a_known_clause_set_may_ever_be_withdrawn():
-    assert WITHDRAWABLE == {"categories_closed", "formats", "unique", "min", "max"}
+    assert {"categories_closed", "formats", "unique", "min", "max"} == WITHDRAWABLE
 
 
 def test_advice_for_an_unknown_column_is_ignored(profile_fixture):

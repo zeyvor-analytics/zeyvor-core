@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from zeyvor.profile import InferredType, Observation, ProfileOptions
 
-
 # ── 1. A date column starts receiving Unix timestamps ─────────────────────────
 
 
@@ -227,7 +226,7 @@ def test_strict_privacy_finds_exactly_the_same_problems(profile_fixture):
     strict = profile_fixture("messy.csv", ProfileOptions(privacy="strict"))
     masked = profile_fixture("messy.csv", ProfileOptions(privacy="masked"))
 
-    for a, b in zip(strict.columns, masked.columns):
+    for a, b in zip(strict.columns, masked.columns, strict=True):
         assert a.name == b.name
         assert a.observations == b.observations
         assert a.inferred_type is b.inferred_type

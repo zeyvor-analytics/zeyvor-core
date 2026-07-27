@@ -83,7 +83,9 @@ def _sources_from_contract(contract: Contract) -> list[tuple[str, str]]:
 
 def _profile_for_check(args, contract: Contract, console: Console) -> list[TableProfile]:
     if args.sources:
-        profiles = [_profile_one(source, args, console, table=args.table) for source in args.sources]
+        profiles = [
+            _profile_one(source, args, console, table=args.table) for source in args.sources
+        ]
         # A single source checked against a single-table contract is the common
         # case, and insisting the names match would be pedantic.
         if len(profiles) == 1 and len(contract.tables) == 1:
@@ -297,8 +299,7 @@ def _clause_lines(column) -> list[str]:
 
 def _measurement_lines(column) -> list[str]:
     lines = [
-        f"type            {column.inferred_type.value} "
-        f"({column.type_confidence:.0%} confidence)",
+        f"type            {column.inferred_type.value} ({column.type_confidence:.0%} confidence)",
         f"rows            {column.row_count:,} "
         f"({column.null_count:,} null, {column.distinct_count:,} distinct)",
     ]
@@ -316,9 +317,7 @@ def _measurement_lines(column) -> list[str]:
             f"median={column.numeric.p50} max={column.numeric.maximum}"
         )
     if column.temporal:
-        lines.append(
-            f"temporal        {column.temporal.minimum} .. {column.temporal.maximum}"
-        )
+        lines.append(f"temporal        {column.temporal.minimum} .. {column.temporal.maximum}")
     if column.pii_signals:
         lines.append(f"pii             {', '.join(column.pii_signals)}")
     if column.observations:

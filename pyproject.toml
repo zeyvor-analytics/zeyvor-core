@@ -48,3 +48,28 @@ packages = ["src/zeyvor"]
 testpaths = ["tests"]
 pythonpath = ["src", "tests"]
 addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# Not a style crusade — these are the rules that catch actual mistakes across a
+# few thousand lines: dead imports, shadowed names, mutable defaults, bare
+# excepts, comparison slips.
+select = ["E", "F", "W", "I", "B", "UP", "C4", "RET", "SIM"]
+ignore = [
+  "E501",    # line length is handled by the formatter
+  "B027",    # Engine.close is an intentional optional hook, not an abstract method
+  "B008",    # function calls in defaults are used deliberately for dataclasses
+  "SIM108",  # ternaries are not always clearer than an if
+  "RET505",  # else-after-return often reads better
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests import fixtures locally on purpose, and assert on private helpers.
+"tests/*" = ["B011", "TID252"]
+
+[tool.ruff.format]
+quote-style = "double"

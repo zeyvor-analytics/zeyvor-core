@@ -14,7 +14,6 @@ from zeyvor import DuckDBEngine, EngineError
 from zeyvor.engines.base import Relation
 from zeyvor.engines.warehouse import BigQueryEngine, DBAPIEngine, SnowflakeEngine, _type_name
 
-
 # ── query accounting ──────────────────────────────────────────────────────────
 
 
@@ -79,7 +78,9 @@ def test_attach_alias_is_sanitised(tmp_path):
         engine.attach(str(tmp_path / "side.db"), "bad; DROP TABLE keep_me", "sqlite")
 
         # The punctuation was stripped rather than executed.
-        databases = {row[0] for row in engine.execute("SELECT database_name FROM duckdb_databases()")}
+        databases = {
+            row[0] for row in engine.execute("SELECT database_name FROM duckdb_databases()")
+        }
         assert "badDROPTABLEkeep_me" in databases
         assert not any(";" in name for name in databases)
 

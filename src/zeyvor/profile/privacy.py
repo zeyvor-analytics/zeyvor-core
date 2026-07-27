@@ -47,7 +47,7 @@ SAMPLE_LIMITS: dict[PrivacyMode, int] = {
 }
 
 
-def coerce_mode(mode: "PrivacyMode | str | None") -> PrivacyMode:
+def coerce_mode(mode: PrivacyMode | str | None) -> PrivacyMode:
     if mode is None:
         return DEFAULT_MODE
     if isinstance(mode, PrivacyMode):

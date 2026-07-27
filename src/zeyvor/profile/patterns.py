@@ -198,11 +198,10 @@ def shape_expression(dialect, expr: str) -> str:
     truncated = dialect.substr(expr, 1, SHAPE_MAX_LENGTH)
     shaped = dialect.regex_replace_all(truncated, SHAPE_DIGIT_CLASS, "#")
     shaped = dialect.regex_replace_all(shaped, SHAPE_LETTER_CLASS, "a")
-    shaped = dialect.regex_replace_all(shaped, SHAPE_SPACE_CLASS, "_")
-    return shaped
+    return dialect.regex_replace_all(shaped, SHAPE_SPACE_CLASS, "_")
 
 
-def patterns_for(keys: "list[str] | None" = None) -> tuple[Pattern, ...]:
+def patterns_for(keys: list[str] | None = None) -> tuple[Pattern, ...]:
     if keys is None:
         return ALL_PATTERNS
     wanted = set(keys)

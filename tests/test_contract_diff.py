@@ -23,7 +23,13 @@ from zeyvor.profile.models import (
 
 
 def column_profile(**kwargs) -> ColumnProfile:
-    defaults = dict(name="c", row_count=100, null_count=0, blank_count=0, distinct_count=100)
+    defaults = {
+        "name": "c",
+        "row_count": 100,
+        "null_count": 0,
+        "blank_count": 0,
+        "distinct_count": 100,
+    }
     defaults.update(kwargs)
     return ColumnProfile(**defaults)
 
@@ -34,9 +40,7 @@ def profile_of(*columns: ColumnProfile, name: str = "t", rows: int = 100) -> Tab
 
 def contract_of(column: ColumnContract, *, name: str = "t", **table_kwargs) -> Contract:
     return Contract(
-        tables={
-            name: TableContract(name=name, columns={column.name: column}, **table_kwargs)
-        }
+        tables={name: TableContract(name=name, columns={column.name: column}, **table_kwargs)}
     )
 
 
@@ -51,12 +55,12 @@ def run(profile: TableProfile, column: ColumnContract, **table_kwargs):
     "contracted,found,accepted",
     [
         ("integer", "integer", True),
-        ("float", "integer", True),      # integers are valid floats
-        ("integer", "float", False),     # floats in an int column lose precision
+        ("float", "integer", True),  # integers are valid floats
+        ("integer", "float", False),  # floats in an int column lose precision
         ("timestamp", "date", True),
         ("date", "timestamp", False),
-        ("text", "email", True),         # a text contract promises nothing more
-        ("email", "text", False),        # emails becoming junk is a narrowing
+        ("text", "email", True),  # a text contract promises nothing more
+        ("email", "text", False),  # emails becoming junk is a narrowing
         ("date", "integer", False),
     ],
 )
@@ -120,9 +124,7 @@ def test_type_contaminated_when_the_contracted_type_still_dominates():
 
 def test_a_mixed_column_is_contamination_when_the_contract_still_holds_the_majority():
     profile = profile_of(
-        column_profile(
-            inferred_type=InferredType.MIXED, type_mixture={"date": 0.7, "integer": 0.3}
-        )
+        column_profile(inferred_type=InferredType.MIXED, type_mixture={"date": 0.7, "integer": 0.3})
     )
     report = run(profile, ColumnContract(name="c", type="date"))
     assert report.has(ViolationType.TYPE_CONTAMINATED)
@@ -130,9 +132,7 @@ def test_a_mixed_column_is_contamination_when_the_contract_still_holds_the_major
 
 def test_a_mixed_column_is_a_type_change_when_the_contract_lost_the_majority():
     profile = profile_of(
-        column_profile(
-            inferred_type=InferredType.MIXED, type_mixture={"date": 0.2, "integer": 0.8}
-        )
+        column_profile(inferred_type=InferredType.MIXED, type_mixture={"date": 0.2, "integer": 0.8})
     )
     report = run(profile, ColumnContract(name="c", type="date"))
     assert report.has(ViolationType.TYPE_CHANGED)
@@ -152,8 +152,9 @@ def test_contamination_below_the_floor_is_silent():
 
 def test_an_emptied_column_is_a_presence_problem_not_a_type_problem():
     profile = profile_of(
-        column_profile(row_count=100, null_count=100, distinct_count=0,
-                       inferred_type=InferredType.EMPTY)
+        column_profile(
+            row_count=100, null_count=100, distinct_count=0, inferred_type=InferredType.EMPTY
+        )
     )
     report = run(profile, ColumnContract(name="c", type="date", nullable=False))
 
@@ -232,8 +233,10 @@ def test_categories_that_could_not_be_verified_warn_rather_than_pass_silently():
     of the three options."""
     profile = profile_of(
         column_profile(
-            inferred_type=InferredType.TEXT, type_mixture={"text": 1.0},
-            distinct_count=5000, enum=None,
+            inferred_type=InferredType.TEXT,
+            type_mixture={"text": 1.0},
+            distinct_count=5000,
+            enum=None,
         )
     )
     report = run(
@@ -281,9 +284,7 @@ def test_uniqueness_lost():
 
 
 def test_an_approximate_distinct_count_cannot_prove_duplication():
-    profile = profile_of(
-        column_profile(row_count=100, distinct_count=90, distinct_is_approx=True)
-    )
+    profile = profile_of(column_profile(row_count=100, distinct_count=90, distinct_is_approx=True))
     assert check(profile, contract_of(ColumnContract(name="c", unique=True))).ok
 
 
@@ -326,7 +327,9 @@ def test_temporal_ranges_and_the_today_token():
             temporal=TemporalStats(minimum="2024-01-01", maximum="2099-12-31", parseable_count=100),
         )
     )
-    report = run(profile, ColumnContract(name="c", type="date", minimum="2019-01-01", maximum="today"))
+    report = run(
+        profile, ColumnContract(name="c", type="date", minimum="2019-01-01", maximum="today")
+    )
 
     assert report.has(ViolationType.RANGE_EXCEEDED)
     assert "2099-12-31" in report.violations[0].found
@@ -402,9 +405,7 @@ def test_row_count_below_min():
         profile,
         Contract(
             tables={
-                "t": TableContract(
-                    name="t", min_rows=100, columns={"c": ColumnContract(name="c")}
-                )
+                "t": TableContract(name="t", min_rows=100, columns={"c": ColumnContract(name="c")})
             }
         ),
     )
@@ -424,9 +425,7 @@ def test_a_changed_type_suppresses_its_own_consequences():
             type_mixture={"integer": 1.0},
             shapes=[ShapeBucket("##########", 100, 1.0)],
             distinct_count=3,
-            enum=EnumProfile(
-                members=[EnumMember("1714089600", 100)], complete=True, cardinality=1
-            ),
+            enum=EnumProfile(members=[EnumMember("1714089600", 100)], complete=True, cardinality=1),
             numeric=NumericStats(minimum=1.7e9, maximum=1.8e9, parseable_count=100),
         )
     )
@@ -457,7 +456,9 @@ def test_a_changed_type_suppresses_its_own_consequences():
 
 
 def test_severity_precedence_is_column_then_table_then_default():
-    profile = profile_of(column_profile(inferred_type=InferredType.TEXT, type_mixture={"text": 1.0}))
+    profile = profile_of(
+        column_profile(inferred_type=InferredType.TEXT, type_mixture={"text": 1.0})
+    )
     column = ColumnContract(name="c", type="date")
 
     table = TableContract(name="t", columns={"c": column}, on_violation=Severity.WARN)
@@ -473,7 +474,8 @@ def test_raising_the_default_does_not_promote_hygiene_warnings():
     so tightening the contract does not turn every note into a build break."""
     profile = profile_of(
         column_profile(
-            inferred_type=InferredType.TEXT, type_mixture={"text": 1.0},
+            inferred_type=InferredType.TEXT,
+            type_mixture={"text": 1.0},
             observations=["mojibake"],
         )
     )
@@ -486,7 +488,9 @@ def test_raising_the_default_does_not_promote_hygiene_warnings():
 
 
 def test_ignore_suppresses_a_column_entirely():
-    profile = profile_of(column_profile(inferred_type=InferredType.TEXT, type_mixture={"text": 1.0}))
+    profile = profile_of(
+        column_profile(inferred_type=InferredType.TEXT, type_mixture={"text": 1.0})
+    )
     contract = contract_of(ColumnContract(name="c", type="date", ignore=True))
 
     report = check(profile, contract)

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -236,8 +236,7 @@ class Engine(ABC):
         self.last_sql: str | None = None
 
     @abstractmethod
-    def _execute(self, sql: str) -> list[tuple[Any, ...]]:
-        ...
+    def _execute(self, sql: str) -> list[tuple[Any, ...]]: ...
 
     def execute(self, sql: str) -> list[tuple[Any, ...]]:
         self.query_count += 1
@@ -257,7 +256,7 @@ class Engine(ABC):
     def close(self) -> None:  # pragma: no cover - trivial
         pass
 
-    def __enter__(self) -> "Engine":
+    def __enter__(self) -> Engine:
         return self
 
     def __exit__(self, *exc: object) -> None:

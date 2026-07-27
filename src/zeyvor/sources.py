@@ -95,7 +95,9 @@ def _file_relation(path: str, source_uri: str, csv_options: dict[str, Any]) -> R
         options.setdefault("delim", "\t")
 
     rendered = ", ".join(f"{k}={_render_option(v)}" for k, v in options.items())
-    text_expr = f"read_csv_auto({_q(path)}, {rendered})" if rendered else f"read_csv_auto({_q(path)})"
+    text_expr = (
+        f"read_csv_auto({_q(path)}, {rendered})" if rendered else f"read_csv_auto({_q(path)})"
+    )
 
     typed_options = {k: v for k, v in options.items() if k != "all_varchar"}
     typed_rendered = ", ".join(f"{k}={_render_option(v)}" for k, v in typed_options.items())
@@ -154,7 +156,9 @@ def resolve_source(
     if engine is not None:
         if fragment:
             relation = Relation(
-                sql=_qualified_table(engine, fragment), name=fragment.split(".")[-1], source_uri=source
+                sql=_qualified_table(engine, fragment),
+                name=fragment.split(".")[-1],
+                source_uri=source,
             )
         else:
             relation = _file_relation(uri, source, csv_options)
@@ -162,7 +166,9 @@ def resolve_source(
 
     # ── remote files ──────────────────────────────────────────────────────────
     if uri.startswith(REMOTE_SCHEMES):
-        eng = DuckDBEngine(duckdb_database, extensions=("httpfs",), threads=threads, memory_limit=memory_limit)
+        eng = DuckDBEngine(
+            duckdb_database, extensions=("httpfs",), threads=threads, memory_limit=memory_limit
+        )
         return ResolvedSource(engine=eng, relation=_file_relation(uri, source, csv_options))
 
     # ── databases ─────────────────────────────────────────────────────────────
@@ -173,7 +179,9 @@ def resolve_source(
             from .engines.warehouse import SnowflakeEngine  # noqa: PLC0415
 
             if not fragment:
-                raise ValueError("Snowflake sources need a table: snowflake://ACCOUNT#DB.SCHEMA.TABLE")
+                raise ValueError(
+                    "Snowflake sources need a table: snowflake://ACCOUNT#DB.SCHEMA.TABLE"
+                )
             account = uri.split("://", 1)[1].strip("/")
             eng: Engine = SnowflakeEngine(account=account or None, **connect_kwargs)
             return ResolvedSource(
@@ -226,14 +234,19 @@ def resolve_source(
                 f"{kind} sources need a table, e.g. {scheme}://user:pw@host/db#public.orders"
             )
         dsn = _dsn_for(kind, uri)
-        eng = DuckDBEngine(duckdb_database, attach=((dsn, "zeyvor_src", kind),), threads=threads, memory_limit=memory_limit)
-        qualified = fragment if fragment.count(".") >= 1 or kind == "sqlite" else f"public.{fragment}"
+        eng = DuckDBEngine(
+            duckdb_database,
+            attach=((dsn, "zeyvor_src", kind),),
+            threads=threads,
+            memory_limit=memory_limit,
+        )
+        qualified = (
+            fragment if fragment.count(".") >= 1 or kind == "sqlite" else f"public.{fragment}"
+        )
         relation_sql = "zeyvor_src." + _qualified_table(eng, qualified)
         return ResolvedSource(
             engine=eng,
-            relation=Relation(
-                sql=relation_sql, name=fragment.split(".")[-1], source_uri=source
-            ),
+            relation=Relation(sql=relation_sql, name=fragment.split(".")[-1], source_uri=source),
         )
 
     # ── local files ───────────────────────────────────────────────────────────

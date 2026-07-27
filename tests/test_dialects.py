@@ -28,9 +28,7 @@ COLUMNS = ["order_id", "signup date", 'weird"name']
 
 @pytest.mark.parametrize("dialect", DIALECTS, ids=lambda d: d.name)
 def test_scalar_stats_sql_generates_for_every_dialect(dialect):
-    statement, layouts = sqlgen.scalar_stats_sql(
-        dialect, RELATION, COLUMNS, patterns=ALL_PATTERNS
-    )
+    statement, layouts = sqlgen.scalar_stats_sql(dialect, RELATION, COLUMNS, patterns=ALL_PATTERNS)
     assert statement.startswith("SELECT")
     assert f"FROM {RELATION.sql}" in statement
     assert len(layouts) == len(COLUMNS)

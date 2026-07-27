@@ -11,6 +11,7 @@ warehouses rather than in the unit-test suite, which runs offline.
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 from .base import BigQueryDialect, Engine, EngineError, Relation, SnowflakeDialect
@@ -52,10 +53,8 @@ class DBAPIEngine(Engine):
         return out
 
     def close(self) -> None:
-        try:
+        with contextlib.suppress(Exception):  # pragma: no cover
             self._conn.close()
-        except Exception:  # pragma: no cover
-            pass
 
 
 class SnowflakeEngine(DBAPIEngine):
@@ -81,9 +80,7 @@ class BigQueryEngine(Engine):
         try:
             from google.cloud import bigquery  # noqa: PLC0415
         except ImportError as exc:
-            raise EngineError(
-                "BigQuery support requires: pip install 'zeyvor[bigquery]'"
-            ) from exc
+            raise EngineError("BigQuery support requires: pip install 'zeyvor[bigquery]'") from exc
         try:
             self._client = bigquery.Client(project=project, **client_kwargs)
         except Exception as exc:

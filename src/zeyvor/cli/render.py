@@ -160,9 +160,7 @@ def render_report(report, console: Console) -> str:
             if violation.detail:
                 lines.append(console.wrap(violation.detail, indent="    "))
             if violation.remedy:
-                lines.append(
-                    console.wrap(f"{symbols['arrow']} {violation.remedy}", indent="    ")
-                )
+                lines.append(console.wrap(f"{symbols['arrow']} {violation.remedy}", indent="    "))
             blocks.append("\n".join(lines))
 
     failed, warned = len(report.failures), len(report.warnings)

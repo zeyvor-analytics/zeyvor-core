@@ -71,13 +71,45 @@ def excel_serials() -> None:
 def messy() -> None:
     """Many hygiene problems at once, including PII inside a free-text column."""
     rows = [
-        ["00123", " Alice Smith ", "$1,299.00", "12.5%", "N/A", "contact me at alice@corp.com", "ACTIVE"],
+        [
+            "00123",
+            " Alice Smith ",
+            "$1,299.00",
+            "12.5%",
+            "N/A",
+            "contact me at alice@corp.com",
+            "ACTIVE",
+        ],
         ["00124", "bob jones", "$2,450.50", "8%", "null", "no email here", "active"],
-        ["00125", "CAROL WHITE ", "$980.00", "15.2%", "2024-03-11", "reach dave@corp.com or call", "Active"],
-        ["00126", " dave brown", "$1,100.25", "9.9%", "11.03.2024", "Ping erin@corp.com pls", "ACTIVE"],
+        [
+            "00125",
+            "CAROL WHITE ",
+            "$980.00",
+            "15.2%",
+            "2024-03-11",
+            "reach dave@corp.com or call",
+            "Active",
+        ],
+        [
+            "00126",
+            " dave brown",
+            "$1,100.25",
+            "9.9%",
+            "11.03.2024",
+            "Ping erin@corp.com pls",
+            "ACTIVE",
+        ],
         ["00127", "Erin Black", "$3,200.00", "22%", "3/11/2024", "cafÃ© visit notes", "inactive"],
         ["00128", "frank green", "$750.75", "5%", "-", "nothing", "INACTIVE"],
-        ["00129", "Grace Hall ", "$1,875.00", "18.4%", "2024-04-01", "email: grace@corp.com", "Inactive"],
+        [
+            "00129",
+            "Grace Hall ",
+            "$1,875.00",
+            "18.4%",
+            "2024-04-01",
+            "email: grace@corp.com",
+            "Inactive",
+        ],
         ["00130", "HENRY KING", "$2,050.00", "11%", "none", "call 555-123-4567", "active"],
     ]
     write(

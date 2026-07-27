@@ -19,7 +19,13 @@ from zeyvor.profile.models import (
 
 
 def column(**kwargs) -> ColumnProfile:
-    defaults = dict(name="c", row_count=100, null_count=0, blank_count=0, distinct_count=100)
+    defaults = {
+        "name": "c",
+        "row_count": 100,
+        "null_count": 0,
+        "blank_count": 0,
+        "distinct_count": 100,
+    }
     defaults.update(kwargs)
     return ColumnProfile(**defaults)
 

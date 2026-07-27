@@ -145,10 +145,9 @@ def test_dollars_becoming_cents_is_caught_as_a_unit_shift(profile_fixture, duck)
     Only the magnitude moves, which is why an approved range envelope is the
     only clause that can catch it.
     """
+    from helpers import fixture_path
     from zeyvor.engines.base import Relation
     from zeyvor.profile import Profiler
-
-    from helpers import fixture_path
 
     path = fixture_path("unit_shift.csv").replace("'", "''")
     pre_shift = Relation(
@@ -214,9 +213,7 @@ def test_a_table_the_profile_never_covered_is_reported(profile_fixture, baseline
 # ── 5. severity control ───────────────────────────────────────────────────────
 
 
-def test_warn_only_mode_reports_everything_and_fails_nothing(
-    profile_fixture, baseline_contract
-):
+def test_warn_only_mode_reports_everything_and_fails_nothing(profile_fixture, baseline_contract):
     """How a team adopts the tool without breaking their pipeline on day one."""
     from zeyvor.contract import Severity
 
@@ -232,9 +229,7 @@ def test_warn_only_mode_reports_everything_and_fails_nothing(
     assert report.ok
 
 
-def test_a_column_can_be_ignored_without_deleting_its_clause(
-    profile_fixture, baseline_contract
-):
+def test_a_column_can_be_ignored_without_deleting_its_clause(profile_fixture, baseline_contract):
     contract = baseline_contract("clean_orders.csv")
     contract.tables["clean_orders"].columns["signup_date"].ignore = True
     broken = profile_fixture("broken_dates.csv", as_name="clean_orders")
@@ -246,9 +241,7 @@ def test_a_column_can_be_ignored_without_deleting_its_clause(
     assert contract.tables["clean_orders"].columns["signup_date"].type == "date"
 
 
-def test_a_single_column_can_be_downgraded_to_a_warning(
-    profile_fixture, baseline_contract
-):
+def test_a_single_column_can_be_downgraded_to_a_warning(profile_fixture, baseline_contract):
     from zeyvor.contract import Severity
 
     contract = baseline_contract("clean_orders.csv")

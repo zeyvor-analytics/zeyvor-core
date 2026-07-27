@@ -170,15 +170,17 @@ def test_numeric_stored_as_text():
 
 
 def test_temporal_stored_as_text():
-    col = make_column(declared="VARCHAR", probes={"date": 100, "timestamp": 100},
-                      patterns={"iso_date": 100})
+    col = make_column(
+        declared="VARCHAR", probes={"date": 100, "timestamp": 100}, patterns={"iso_date": 100}
+    )
     assert col.has(Observation.TEMPORAL_STORED_AS_TEXT)
 
 
 def test_declared_type_conflict():
     """A BIGINT column full of dates is a genuine schema contradiction."""
-    col = make_column(declared="BIGINT", probes={"date": 100, "timestamp": 100},
-                      patterns={"iso_date": 100})
+    col = make_column(
+        declared="BIGINT", probes={"date": 100, "timestamp": 100}, patterns={"iso_date": 100}
+    )
     assert col.has(Observation.DECLARED_TYPE_CONFLICT)
 
 

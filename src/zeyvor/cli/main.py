@@ -17,8 +17,8 @@ import sys
 
 from .. import __version__
 from .commands import (
-    CliError,
     DEFAULT_CONTRACT_PATH,
+    CliError,
     cmd_accept,
     cmd_check,
     cmd_explain,
@@ -156,9 +156,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Report everything but always exit 0 (for a first adoption run)",
     )
-    check.add_argument(
-        "--fail-on-warn", action="store_true", help="Treat warnings as failures too"
-    )
+    check.add_argument("--fail-on-warn", action="store_true", help="Treat warnings as failures too")
     _add_source_options(check)
     check.set_defaults(func=cmd_check)
 

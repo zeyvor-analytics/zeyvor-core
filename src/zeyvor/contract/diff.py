@@ -79,9 +79,9 @@ def type_accepts(contracted: str, found: str) -> bool:
         return True
     if contracted == InferredType.TIMESTAMP.value and found == InferredType.DATE.value:
         return True
-    if contracted == InferredType.TEXT.value and found in TEXTISH:
-        return True
-    return False
+    # A text contract promises nothing beyond "text", so the structured text
+    # types all satisfy it.
+    return contracted == InferredType.TEXT.value and found in TEXTISH
 
 
 # A profile's type *mixture* is coarser than its inferred type: it partitions
@@ -273,9 +273,7 @@ class _Checker:
             return
 
         if found == InferredType.MIXED.value:
-            share = sum(
-                v for k, v in profile.type_mixture.items() if family_accepts(contracted, k)
-            )
+            share = sum(v for k, v in profile.type_mixture.items() if family_accepts(contracted, k))
             if share >= 0.5:
                 self._add_contamination(out, profile, column, table, contracted)
             else:
@@ -287,8 +285,7 @@ class _Checker:
                     expected=label(contracted),
                     found=_describe_mixture(profile.type_mixture) or label(found),
                     detail="No single type accounts for this column any more.",
-                    remedy=f"Fix the source, or change type to match what the data "
-                    f"now holds.",
+                    remedy="Fix the source, or change type to match what the data now holds.",
                     evidence={"expected_type": contracted, "mixture": profile.type_mixture},
                 )
             return
@@ -315,9 +312,7 @@ class _Checker:
             return
 
         affected = int(round(share * profile.valued_count))
-        shapes = ", ".join(
-            f"{s.shape} ({s.count:,})" for s in profile.shapes[:3] if s.shape
-        )
+        shapes = ", ".join(f"{s.shape} ({s.count:,})" for s in profile.shapes[:3] if s.shape)
         self.add(
             out,
             ViolationType.TYPE_CONTAMINATED,
@@ -413,8 +408,7 @@ class _Checker:
                 column,
                 expected=f"all of {quote_list(column.categories)} to appear",
                 found=f"missing: {quote_list(gone)}",
-                detail="Not necessarily wrong — a category can simply be unused "
-                "in this window.",
+                detail="Not necessarily wrong — a category can simply be unused in this window.",
                 remedy="Remove it from categories if it is retired.",
                 evidence={"missing_categories": gone},
             )
@@ -510,8 +504,7 @@ class _Checker:
                 table,
                 column,
                 expected=f"values between {low} and {high}",
-                found=f"maximum {observed_high:,.2f} — about {factor:.0f}x the "
-                "expected ceiling",
+                found=f"maximum {observed_high:,.2f} — about {factor:.0f}x the expected ceiling",
                 detail="Values of this magnitude usually mean the unit changed "
                 "(dollars to cents, seconds to milliseconds) rather than a "
                 "genuine outlier. The type has not changed, so nothing else "
@@ -591,8 +584,7 @@ class _Checker:
             (
                 Observation.NULL_WORDS,
                 ViolationType.NULL_WORDS_APPEARED,
-                f"{humanise_count(hits.get('null_word', 0), total)} hold text such as "
-                "'N/A' or '-'",
+                f"{humanise_count(hits.get('null_word', 0), total)} hold text such as 'N/A' or '-'",
                 "SQL sees these rows as present, so every null check counts them as "
                 "having a value.",
                 "Write real nulls at the source.",
@@ -600,10 +592,8 @@ class _Checker:
             (
                 Observation.MOJIBAKE,
                 ViolationType.MOJIBAKE_APPEARED,
-                f"{humanise_count(hits.get('mojibake', 0), total)} contain mis-decoded "
-                "characters",
-                "An encoding step is broken — usually a file read as Latin-1 and "
-                "written as UTF-8.",
+                f"{humanise_count(hits.get('mojibake', 0), total)} contain mis-decoded characters",
+                "An encoding step is broken — usually a file read as Latin-1 and written as UTF-8.",
                 "Read and write UTF-8 end to end.",
             ),
             (

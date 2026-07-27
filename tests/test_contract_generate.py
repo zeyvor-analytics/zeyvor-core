@@ -10,9 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from zeyvor.contract import RangePolicy, generate_contract, generate_column_contract
+from zeyvor.contract import RangePolicy, generate_column_contract, generate_contract
 from zeyvor.contract.generate import _pad_lower, _pad_upper, _round_up_1sf
-
 
 # ── range padding ─────────────────────────────────────────────────────────────
 
@@ -129,7 +128,7 @@ def test_open_world_columns_are_never_closed(profile_fixture):
 
 def test_a_vocabulary_needs_real_repetition(profile_fixture):
     """A set of values each seen once or twice is a list, not a vocabulary."""
-    from zeyvor.profile.models import ColumnProfile, EnumMember, EnumProfile, InferredType
+    from zeyvor.profile.models import ColumnProfile, EnumMember, EnumProfile
     from zeyvor.profile.types import finalise
 
     def column_with(distinct: int, rows: int):
@@ -276,8 +275,8 @@ def test_a_failing_describer_still_yields_a_usable_contract(profile_fixture):
     contract = generate_contract(profile_fixture("clean_orders.csv"), describer=broken)
     columns = contract.tables["clean_orders"].columns
 
-    assert columns["status"].categories_closed is True   # clauses intact
-    assert columns["status"].means is None               # prose absent
+    assert columns["status"].categories_closed is True  # clauses intact
+    assert columns["status"].means is None  # prose absent
     assert "descriptions unavailable" in contract.generated_by
 
 

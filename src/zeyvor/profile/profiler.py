@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field, replace
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 from ..engines.base import Engine, EngineError, Relation
 from . import sql as sqlgen
@@ -115,7 +116,9 @@ class Profiler:
 
     # ── description ───────────────────────────────────────────────────────────
 
-    def _describe(self, relation: Relation, warnings: list[str]) -> tuple[list[str], dict[str, str]]:
+    def _describe(
+        self, relation: Relation, warnings: list[str]
+    ) -> tuple[list[str], dict[str, str]]:
         """Column names from the text relation; declared types from the typed one.
 
         Files are read as all-VARCHAR so that profiling cannot be broken by bad
@@ -130,7 +133,7 @@ class Profiler:
         if relation.typed_sql:
             typed_relation = replace(relation, sql=relation.typed_sql, typed_sql=None)
             try:
-                declared = {name: dtype for name, dtype in self.engine.columns(typed_relation)}
+                declared = dict(self.engine.columns(typed_relation))
             except EngineError as exc:
                 warnings.append(
                     "Could not read the source with its own inferred types "
@@ -138,7 +141,7 @@ class Profiler:
                     "continued on the text representation."
                 )
         else:
-            declared = {name: dtype for name, dtype in self.engine.columns(relation)}
+            declared = dict(self.engine.columns(relation))
 
         return names, declared
 
@@ -163,8 +166,14 @@ class Profiler:
             )
             row = self.engine.execute_one(statement)
             cursor = 0
-            for column, layout in zip(batch, layouts):
-                values = dict(zip(layout.metrics, row[cursor : cursor + len(layout.metrics)]))
+            for column, layout in zip(batch, layouts, strict=True):
+                values = dict(
+                    zip(
+                        layout.metrics,
+                        row[cursor : cursor + len(layout.metrics)],
+                        strict=True,
+                    )
+                )
                 cursor += len(layout.metrics)
                 self._apply_scalars(column, values, exact_distinct=exact_distinct)
 

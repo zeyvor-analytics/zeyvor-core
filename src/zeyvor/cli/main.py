@@ -16,6 +16,7 @@ import argparse
 import sys
 
 from .. import __version__
+from ..integrations import upload
 from .commands import (
     DEFAULT_CONTRACT_PATH,
     CliError,
@@ -194,6 +195,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Report everything but always exit 0 (for a first adoption run)",
     )
     check.add_argument("--fail-on-warn", action="store_true", help="Treat warnings as failures too")
+    check.add_argument(
+        "--upload",
+        action="store_true",
+        help="Also send the run to your Zeyvor account, so the history survives "
+        "the terminal. Off by default; no value from your data is ever sent",
+    )
+    check.add_argument(
+        "--project",
+        metavar="OWNER/NAME",
+        help=f"Project to report to (or set {upload.PROJECT_ENV})",
+    )
+    check.add_argument(
+        "--endpoint",
+        metavar="URL",
+        help=f"Override the reporting endpoint (or set {upload.ENDPOINT_ENV})",
+    )
     _add_dbt_options(check)
     _add_source_options(check)
     check.set_defaults(func=cmd_check)

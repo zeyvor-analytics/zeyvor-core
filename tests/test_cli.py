@@ -532,7 +532,7 @@ def dbt_project(tmp_path, monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     _shutil.copy(fixture_path("dbt_manifest.json"), tmp_path / "manifest.json")
 
-    orders_csv = fixture_path("clean_orders.csv").replace("\'", "\'\'")
+    orders_csv = fixture_path("clean_orders.csv").replace("'", "''")
     connection = duckdb.connect(str(tmp_path / "wh.duckdb"))
     connection.execute("CREATE SCHEMA analytics")
     connection.execute(

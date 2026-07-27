@@ -287,9 +287,42 @@ def cmd_check(args, console: Console) -> int:
             # A failed notification must not mask the check's own verdict.
             console.error(f"could not post to Slack: {exc}")
 
+    if getattr(args, "upload", False):
+        _upload_report(args, report, console)
+
     if args.fail_on_warn and report.warnings:
         return 1
     return report.exit_code
+
+
+def _upload_report(args, report, console: Console) -> None:
+    """Send the run to a Zeyvor account. Never changes the exit code.
+
+    A reporting service being unreachable is not a data problem, so it must not
+    turn a green build red — nor quietly swallow a real failure, which is why
+    this runs after the verdict has already been printed.
+    """
+    from ..integrations.upload import (
+        PROJECT_ENV,
+        UploadError,
+        build_payload,
+        post_report,
+    )
+
+    project = getattr(args, "project", None) or os.environ.get(PROJECT_ENV) or ""
+    if not project:
+        console.error(f"--upload needs a project: pass --project OWNER/NAME or set {PROJECT_ENV}")
+        return
+
+    try:
+        post_report(
+            build_payload(report, project=project),
+            endpoint=getattr(args, "endpoint", None),
+        )
+    except UploadError as exc:
+        console.error(f"could not upload the report: {exc}")
+        return
+    console.step(f"reported to {project}")
 
 
 # ── explain ───────────────────────────────────────────────────────────────────

@@ -15,9 +15,9 @@ Nothing breaks. No error, no alert. The column is still complete, still unique, 
 
 ## Status
 
-**Parts 1 and 2 of 6 are complete:** the profiler (measurement) and the contract engine (judgement). A contract can be generated from data and checked against live data today, from Python.
+**Parts 1–3 of 6 are complete:** the profiler (measurement), the contract engine (judgement), and the command line. It is usable end to end today.
 
-The CLI, the CI integrations and the hosted dashboard are still to come, so the command surface (`zeyvor init`, `zeyvor check`) does not exist yet — only the library beneath it.
+Still to come: the CI integrations (GitHub Action, dbt) and the hosted dashboard.
 
 ## Install
 
@@ -33,50 +33,69 @@ pip install 'zeyvor[snowflake]'    # or [bigquery]
 
 ## Use
 
-```python
-from zeyvor import profile_source
-
-profile = profile_source("orders.csv")
-
-profile.column("signup_date").inferred_type      # InferredType.DATE
-profile.column("notes").observations             # ['pii_in_free_text', 'mojibake']
-profile.column("status").enum.values()           # ['shipped', 'pending', 'refunded']
-print(profile.to_json())
+```bash
+zeyvor init orders.csv     # write a contract describing the data as it is now
+zeyvor check               # verify live data against it — this is your CI step
 ```
+
+That is the whole loop. `init` measures the data and writes `zeyvor.yml`, which you read, correct and commit. `check` needs no arguments, because the contract records what it describes.
+
+When something breaks:
+
+```
+✖ orders.signup_date — type_contaminated
+    Contract: calendar dates ('####-##-##')
+    Found:    97.0% date, 3.0% integer — 3 of 100 rows (3.0%) do not fit
+    Shapes present: ####-##-## (97), ########## (3)
+    → Fix the source. If the new values are legitimate, widen the contract.
+
+✖ orders.signup_date — epoch_suspected
+    Found:    3 of 100 rows (3.0%) look like Unix timestamps
+    This did not happen when the contract was written, and the rows that do
+    parse are as wrong as the rows that do not.
+    → Convert at the source, or widen the contract if intended.
+
+2 failed, 0 warned across 7 columns
+```
+
+Exit code `1`. Your build is red, on the day it broke, naming the column.
+
+### The five commands
+
+| | |
+|---|---|
+| `zeyvor init <source>...` | Write a contract from current data |
+| `zeyvor check [source]...` | Verify data against the contract |
+| `zeyvor explain <column>` | What a column promises, beside what it does |
+| `zeyvor accept` | Bless an intentional change |
+| `zeyvor profile <source>` | Just look at the data, no contract involved |
+
+Useful flags: `--json` for machine-readable output on stdout, `--warn-only` to report everything and still exit 0 (how a team adopts this without breaking their pipeline on day one), `--fail-on-warn` to go the other way, `--privacy strict` to let nothing recognisable leave the machine.
+
+Exit codes are part of the interface: `0` matched, `1` the data violated the contract, `2` the invocation failed. CI needs to tell a broken contract file from broken data.
 
 Point it at almost anything:
 
-```python
-profile_source("orders.csv")                              # local file
-profile_source("data/*.parquet")                          # glob
-profile_source("https://host/export.csv")                 # remote file
-profile_source("postgres://user:pw@host/db#public.orders") # live table
-profile_source("snowflake://ACCOUNT#DB.SCHEMA.ORDERS")     # warehouse
-```
-
-Or look at a profile by eye while developing:
-
 ```bash
-python -m zeyvor orders.csv
+zeyvor init orders.csv                                # local file
+zeyvor init "data/*.parquet"                          # glob
+zeyvor init https://host/export.csv                   # remote file
+zeyvor init "postgres://user:pw@host/db#public.orders" # live table
+zeyvor init "snowflake://ACCOUNT#DB.SCHEMA.ORDERS"     # warehouse
 ```
 
-## Contracts
-
-Capture what the data means today, commit it, and fail the build when the meaning changes.
+Or use it as a library — the CLI is a thin shell over it:
 
 ```python
 from zeyvor import profile_source
-from zeyvor.contract import check, dumps, generate_contract, loads
+from zeyvor.contract import check, generate_contract, loads
 
-# once, from a good day's data
-contract = generate_contract(profile_source("orders.csv"))
-open("zeyvor.yml", "w").write(dumps(contract))
-
-# then on every push
 report = check(profile_source("orders.csv"), loads(open("zeyvor.yml").read()))
 print(report.render())
 raise SystemExit(report.exit_code)
 ```
+
+## Contracts
 
 The generated file is meant to be read and edited in a pull request:
 
@@ -106,20 +125,6 @@ tables:
 **A generated contract always passes against the data it came from.** Every clause comes from measured evidence, and clauses that cannot be established are simply omitted: no closed category set unless the profile captured a complete one, no format rule on numbers (a digit count grows), no range on an identifier (an auto-incrementing id outgrows every ceiling), no uniqueness unless the column looks like a key. Pre-existing defects are recorded as `known_issues` rather than raised as news. There is a test for this on every fixture, and it is the most important test in the suite.
 
 **Tolerances everywhere.** `nullable: false` has `max_null_rate` beside it; `defaults: {on_violation: warn}` turns the whole contract into a report so a team can adopt it without breaking their pipeline on day one; `ignore: true` retires a check while keeping the intent visible in review.
-
-### What a violation reads like
-
-```
-✖ orders.signup_date — type_contaminated
-    Contract: calendar dates ('####-##-##')
-    Found:    97.0% date, 3.0% integer — 3 of 100 rows (3.0%) do not fit
-    Shapes present: ####-##-## (97), ########## (3)
-    → Fix the source. If the new values are legitimate, widen the contract to accept them.
-
-✖ orders.signup_date — epoch_suspected
-    Unix timestamps have appeared in a column of dates.
-    → Convert at the source, or widen the contract if the change is intended.
-```
 
 Twenty violation types, each with a default severity. `type_contaminated` is deliberately separate from `type_changed`: a column at 99.8% dates has *not* changed type, so equality checks pass it, and it is the case this exists to catch. Cascade suppression keeps one problem from producing five findings — a changed type silences the format, range and category clauses that follow from it.
 
@@ -192,7 +197,7 @@ python -m venv .venv && .venv/bin/pip install -e '.[dev]'
 .venv/bin/python -m pytest
 ```
 
-368 tests, no network access required. Regenerate fixtures with `python tests/fixtures/generate.py`.
+407 tests, no network access required. Regenerate fixtures with `python tests/fixtures/generate.py`.
 
 Patterns are tested by executing them inside DuckDB rather than Python's `re`, which verifies both correctness and RE2 compatibility — the property that lets the same expression run on BigQuery and Snowflake.
 
@@ -227,6 +232,10 @@ src/zeyvor/
     diff.py         profile x contract -> violations (deterministic, offline)
     violations.py   the taxonomy and how findings read
     llm.py          the one place a model is used: writing `means`
+  cli/              Part 3 — the command line
+    main.py         argument parsing, dispatch, exit codes
+    commands.py     init / check / explain / accept / profile
+    render.py       terminal output: colour, symbols, width
   sources.py        source string → engine + relation
 ```
 

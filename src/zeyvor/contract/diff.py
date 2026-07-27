@@ -557,27 +557,64 @@ class _Checker:
         )
 
     def _check_observations(self, out, profile, column, table) -> None:
-        """Report Part 1 findings that were not already accepted in the contract."""
+        """Report Part 1 findings that were not already accepted in the contract.
+
+        These have no clause to quote, so there is no "Contract:" line — what
+        makes them a violation is that they are *new*. The `found` line therefore
+        has to carry the evidence itself, with counts, or the reader learns
+        nothing the violation's name did not already tell them.
+        """
         known = set(column.known_issues)
+        hits = profile.pattern_hits
+        total = profile.valued_count
+
+        epoch_count = max(hits.get("epoch_seconds", 0), hits.get("epoch_millis", 0))
         mapping = [
-            (Observation.EPOCH_SUSPECTED, ViolationType.EPOCH_SUSPECTED,
-             "Unix timestamps have appeared in a column of dates.",
-             "Convert at the source, or widen the contract if the change is intended."),
-            (Observation.EXCEL_SERIAL_SUSPECTED, ViolationType.EXCEL_SERIAL_SUSPECTED,
-             "Values look like Excel serial dates (a spreadsheet round-trip).",
-             "Export as ISO dates rather than through a spreadsheet."),
-            (Observation.NULL_WORDS, ViolationType.NULL_WORDS_APPEARED,
-             "Text such as 'N/A' or '-' is standing in for missing data, so every "
-             "null check counts these rows as present.",
-             "Write real nulls at the source."),
-            (Observation.MOJIBAKE, ViolationType.MOJIBAKE_APPEARED,
-             "Mis-decoded characters indicate a broken encoding step.",
-             "Read and write UTF-8 end to end."),
-            (Observation.MIXED_BOOLEAN_ENCODING, ViolationType.MIXED_BOOLEAN_ENCODING,
-             "A true/false column is spelled several ways at once.",
-             "Normalise to one vocabulary at the source."),
+            (
+                Observation.EPOCH_SUSPECTED,
+                ViolationType.EPOCH_SUSPECTED,
+                f"{humanise_count(epoch_count, total)} look like Unix timestamps"
+                if epoch_count
+                else "values look like Unix timestamps",
+                "This did not happen when the contract was written, and the rows "
+                "that do parse are as wrong as the rows that do not.",
+                "Convert at the source, or widen the contract if intended.",
+            ),
+            (
+                Observation.EXCEL_SERIAL_SUSPECTED,
+                ViolationType.EXCEL_SERIAL_SUSPECTED,
+                f"{humanise_count(hits.get('excel_serial', 0), total)} look like Excel "
+                "serial dates",
+                "A spreadsheet round-trip usually causes this.",
+                "Export ISO dates rather than going through a spreadsheet.",
+            ),
+            (
+                Observation.NULL_WORDS,
+                ViolationType.NULL_WORDS_APPEARED,
+                f"{humanise_count(hits.get('null_word', 0), total)} hold text such as "
+                "'N/A' or '-'",
+                "SQL sees these rows as present, so every null check counts them as "
+                "having a value.",
+                "Write real nulls at the source.",
+            ),
+            (
+                Observation.MOJIBAKE,
+                ViolationType.MOJIBAKE_APPEARED,
+                f"{humanise_count(hits.get('mojibake', 0), total)} contain mis-decoded "
+                "characters",
+                "An encoding step is broken — usually a file read as Latin-1 and "
+                "written as UTF-8.",
+                "Read and write UTF-8 end to end.",
+            ),
+            (
+                Observation.MIXED_BOOLEAN_ENCODING,
+                ViolationType.MIXED_BOOLEAN_ENCODING,
+                f"a true/false column spelled {profile.distinct_count} different ways",
+                "It will not behave as a boolean anywhere downstream.",
+                "Normalise to one vocabulary at the source.",
+            ),
         ]
-        for observation, vtype, detail, remedy in mapping:
+        for observation, vtype, found, detail, remedy in mapping:
             if not profile.has(observation) or observation.value in known:
                 continue
             self.add(
@@ -585,8 +622,7 @@ class _Checker:
                 vtype,
                 table,
                 column,
-                expected="this was not present when the contract was written",
-                found=observation.value.replace("_", " "),
+                found=found,
                 detail=detail,
                 remedy=remedy,
                 evidence={"observation": observation.value},

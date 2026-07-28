@@ -45,6 +45,11 @@ class ViolationType(str, Enum):
     RANGE_EXCEEDED = "range_exceeded"
     UNIT_SHIFT_SUSPECTED = "unit_shift_suspected"
 
+    # relationships between tables
+    FK_ORPHANS = "fk_orphans"
+    FK_FANOUT = "fk_fanout"
+    RELATIONSHIP_UNCHECKABLE = "relationship_uncheckable"
+
     # privacy and hygiene
     PII_APPEARED = "pii_appeared"
     NULL_WORDS_APPEARED = "null_words_appeared"
@@ -69,7 +74,10 @@ DEFAULT_SEVERITY: dict[ViolationType, Severity] = {
     ViolationType.RANGE_EXCEEDED: Severity.FAIL,
     ViolationType.UNIT_SHIFT_SUSPECTED: Severity.FAIL,
     ViolationType.PII_APPEARED: Severity.FAIL,
+    ViolationType.FK_ORPHANS: Severity.FAIL,
+    ViolationType.FK_FANOUT: Severity.FAIL,
     # Hygiene and "we could not check this" findings inform rather than block.
+    ViolationType.RELATIONSHIP_UNCHECKABLE: Severity.WARN,
     ViolationType.CATEGORY_DISAPPEARED: Severity.WARN,
     ViolationType.CATEGORIES_UNVERIFIABLE: Severity.WARN,
     ViolationType.NULL_WORDS_APPEARED: Severity.WARN,
@@ -135,6 +143,7 @@ class Report:
     violations: list[Violation] = field(default_factory=list)
     tables_checked: int = 0
     columns_checked: int = 0
+    relationships_checked: int = 0
     checked_at: str = ""
     zeyvor_version: str = ""
 
@@ -165,9 +174,15 @@ class Report:
 
     def render(self, *, colour: bool = False) -> str:
         if not self.violations:
+            joins = (
+                f", and {self.relationships_checked} join"
+                f"{'s' if self.relationships_checked != 1 else ''} are intact"
+                if self.relationships_checked
+                else ""
+            )
             return (
                 f"✔ {self.columns_checked} columns across {self.tables_checked} "
-                f"table{'s' if self.tables_checked != 1 else ''} match the contract."
+                f"table{'s' if self.tables_checked != 1 else ''} match the contract{joins}."
             )
 
         # Group by column so several findings on one column read as one story.
@@ -181,10 +196,13 @@ class Report:
                 if violation.target == target:
                     blocks.append(violation.render(colour=colour))
 
-        summary = (
-            f"{len(self.failures)} failed, {len(self.warnings)} warned "
-            f"across {self.columns_checked} columns"
-        )
+        scope = f"{self.columns_checked} columns"
+        if self.relationships_checked:
+            scope += (
+                f" and {self.relationships_checked} relationship"
+                f"{'s' if self.relationships_checked != 1 else ''}"
+            )
+        summary = f"{len(self.failures)} failed, {len(self.warnings)} warned across {scope}"
         return "\n\n".join(blocks) + f"\n\n{summary}"
 
     def to_dict(self) -> dict[str, Any]:
@@ -194,6 +212,7 @@ class Report:
             "zeyvor_version": self.zeyvor_version,
             "tables_checked": self.tables_checked,
             "columns_checked": self.columns_checked,
+            "relationships_checked": self.relationships_checked,
             "failed": len(self.failures),
             "warned": len(self.warnings),
             "violations": [v.to_dict() for v in self.violations],

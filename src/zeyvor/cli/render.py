@@ -130,9 +130,13 @@ def render_report(report, console: Console) -> str:
     symbols = console.symbols
     if not report.violations:
         plural = "s" if report.tables_checked != 1 else ""
+        joins = getattr(report, "relationships_checked", 0)
+        # Worth saying out loud: somebody who added relationships wants to know
+        # they were actually measured, not assume it from silence.
+        also = f", and {joins} join{'s' if joins != 1 else ''} are intact" if joins else ""
         return console.tint(
             f"{symbols['ok']} {report.columns_checked} columns across "
-            f"{report.tables_checked} table{plural} match the contract.",
+            f"{report.tables_checked} table{plural} match the contract{also}.",
             "green",
         )
 
@@ -164,7 +168,11 @@ def render_report(report, console: Console) -> str:
             blocks.append("\n".join(lines))
 
     failed, warned = len(report.failures), len(report.warnings)
-    summary = f"{failed} failed, {warned} warned across {report.columns_checked} columns"
+    scope = f"{report.columns_checked} columns"
+    joins = getattr(report, "relationships_checked", 0)
+    if joins:
+        scope += f" and {joins} relationship{'s' if joins != 1 else ''}"
+    summary = f"{failed} failed, {warned} warned across {scope}"
     return "\n\n".join(blocks) + "\n\n" + console.tint(summary, "red" if failed else "yellow")
 
 

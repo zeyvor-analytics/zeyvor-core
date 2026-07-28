@@ -22,9 +22,11 @@ import yaml
 
 from .models import (
     CONTRACT_SCHEMA_VERSION,
+    Cardinality,
     ColumnContract,
     Contract,
     Defaults,
+    Relationship,
     Severity,
     TableContract,
 )
@@ -39,7 +41,24 @@ HEADER = """\
 # visible in review.
 """
 
-CONTRACT_KEYS = {"version", "generated_by", "generated_at", "defaults", "tables"}
+CONTRACT_KEYS = {
+    "version",
+    "generated_by",
+    "generated_at",
+    "defaults",
+    "tables",
+    "relationships",
+}
+RELATIONSHIP_KEYS = {
+    "from",
+    "to",
+    "cardinality",
+    "max_orphan_rate",
+    "means",
+    "known_issues",
+    "ignore",
+    "on_violation",
+}
 DEFAULTS_KEYS = {"on_violation"}
 TABLE_KEYS = {
     "source",
@@ -285,7 +304,118 @@ def loads(text: str) -> Contract:
         generated_at=str(raw.get("generated_at", "") or ""),
         defaults=defaults,
         tables=tables,
+        relationships=_relationships(v, raw.get("relationships"), tables),
     )
+
+
+def _split_target(text: Any, what: str, where: str) -> tuple[str, str]:
+    """`orders.customer_id` → ("orders", "customer_id").
+
+    One dotted string rather than two keys: it is how a reviewer already writes a
+    column, it is what the CLI prints, and it halves the number of ways to get a
+    relationship half-written.
+    """
+    value = str(text or "").strip()
+    if value.count(".") != 1 or value.startswith(".") or value.endswith("."):
+        raise ContractError(f"{what} must be written table.column, got {value!r}{where}")
+    table, column = value.split(".")
+    return table.strip(), column.strip()
+
+
+def _relationships(v: _Validator, raw: Any, tables: dict[str, TableContract]) -> list[Relationship]:
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise ContractError(f"relationships must be a list{v.at(('relationships',))}")
+
+    out: list[Relationship] = []
+    seen: dict[str, int] = {}
+    for index, item in enumerate(raw):
+        path = ("relationships", str(index))
+        body = v.mapping(item, path, f"relationship {index + 1}")
+        v.check_keys(body, RELATIONSHIP_KEYS, path)
+
+        where = v.at(path)
+        from_table, from_column = _split_target(body.get("from"), "relationships[].from", where)
+        to_table, to_column = _split_target(body.get("to"), "relationships[].to", where)
+
+        # The child must be described in the same file, because the clause belongs
+        # with the side that holds the key. The parent is checked after loading:
+        # in a directory of per-table contracts it legitimately lives elsewhere.
+        if from_table not in tables:
+            raise ContractError(
+                f"Relationship {from_table}.{from_column} -> {to_table}.{to_column} "
+                f"is declared in a file that does not describe '{from_table}'. "
+                f"A relationship belongs with the table holding the foreign key{where}"
+            )
+
+        cardinality_raw = str(body.get("cardinality", Cardinality.MANY_TO_ONE.value)).strip()
+        try:
+            cardinality = Cardinality(cardinality_raw)
+        except ValueError:
+            allowed = ", ".join(item.value for item in Cardinality)
+            raise ContractError(
+                f"cardinality must be one of {allowed}, got {cardinality_raw!r}{where}"
+            ) from None
+
+        rate = v.number(body.get("max_orphan_rate"), path + ("max_orphan_rate",), "max_orphan_rate")
+        if rate is not None and not 0.0 <= rate <= 1.0:
+            raise ContractError(f"max_orphan_rate is a share between 0 and 1, got {rate!r}{where}")
+
+        relationship = Relationship(
+            from_table=from_table,
+            from_column=from_column,
+            to_table=to_table,
+            to_column=to_column,
+            cardinality=cardinality,
+            max_orphan_rate=rate,
+            means=str(body["means"]) if body.get("means") is not None else None,
+            known_issues=v.string_list(
+                body.get("known_issues"), path + ("known_issues",), "known_issues"
+            ),
+            ignore=bool(body.get("ignore", False)),
+            on_violation=v.severity(body.get("on_violation"), path + ("on_violation",)),
+        )
+
+        # The same edge twice means one of them is not doing anything, and which
+        # one wins would depend on list order.
+        if relationship.key in seen:
+            raise ContractError(
+                f"Relationship {relationship.key} is declared twice "
+                f"(also at relationships[{seen[relationship.key]}]){where}"
+            )
+        seen[relationship.key] = index
+        out.append(relationship)
+
+    return out
+
+
+def validate_relationship_targets(contract: Contract) -> None:
+    """Every relationship must name columns that exist, once everything is loaded.
+
+    Deferred to here rather than done while parsing, because a directory of
+    per-table contracts is parsed one file at a time and the parent side is
+    usually in a different file. A relationship pointing at nothing would
+    otherwise sit in the contract doing nothing at all, which is the failure mode
+    this whole package exists to complain about.
+    """
+    for relationship in contract.relationships:
+        for table_name, column_name, side in (
+            (relationship.from_table, relationship.from_column, "from"),
+            (relationship.to_table, relationship.to_column, "to"),
+        ):
+            table = contract.tables.get(table_name)
+            if table is None:
+                raise ContractError(
+                    f"Relationship {relationship.key} names table '{table_name}' "
+                    f"({side}), which no contract describes."
+                )
+            if column_name not in table.columns:
+                raise ContractError(
+                    f"Relationship {relationship.key} names column "
+                    f"'{table_name}.{column_name}' ({side}), which the contract for "
+                    f"'{table_name}' does not describe."
+                )
 
 
 def load(path: str) -> Contract:
@@ -303,7 +433,9 @@ def load(path: str) -> Contract:
             text = handle.read()
     except FileNotFoundError:
         raise ContractError(f"No contract at {path}. Create one with: zeyvor init") from None
-    return loads(text)
+    contract = loads(text)
+    validate_relationship_targets(contract)
+    return contract
 
 
 def load_directory(path: str) -> Contract:
@@ -341,6 +473,15 @@ def load_directory(path: str) -> Contract:
             merged.tables[table_name] = table
             origin[table_name] = name
 
+        declared = {relationship.key for relationship in merged.relationships}
+        for relationship in part.relationships:
+            if relationship.key in declared:
+                raise ContractError(
+                    f"{name}: relationship {relationship.key} is already declared in another file."
+                )
+            merged.relationships.append(relationship)
+            declared.add(relationship.key)
+
         # Conflicting defaults across files would make behaviour depend on
         # filename order, so refuse rather than pick one.
         if part.defaults.on_violation is not Severity.FAIL:
@@ -353,6 +494,8 @@ def load_directory(path: str) -> Contract:
         merged.version = max(merged.version, part.version)
 
     assert merged is not None
+    merged.relationships.sort(key=lambda relationship: relationship.key)
+    validate_relationship_targets(merged)
     return merged
 
 
@@ -397,6 +540,34 @@ def _column_body(column: ColumnContract) -> dict[str, Any]:
     return {key: body[key] for key in COLUMN_KEY_ORDER if body.get(key) is not None}
 
 
+RELATIONSHIP_KEY_ORDER = (
+    "means",
+    "from",
+    "to",
+    "cardinality",
+    "max_orphan_rate",
+    "known_issues",
+    "ignore",
+    "on_violation",
+)
+
+
+def _relationship_body(relationship: Relationship) -> dict[str, Any]:
+    body: dict[str, Any] = {
+        "means": relationship.means,
+        "from": relationship.child,
+        "to": relationship.parent,
+        # Written even when it is the default: which way a join fans is the whole
+        # point of the clause, and a reviewer should not have to know the default.
+        "cardinality": relationship.cardinality.value,
+        "max_orphan_rate": relationship.max_orphan_rate,
+        "known_issues": _Flow(relationship.known_issues) if relationship.known_issues else None,
+        "ignore": relationship.ignore or None,
+        "on_violation": relationship.on_violation.value if relationship.on_violation else None,
+    }
+    return {key: body[key] for key in RELATIONSHIP_KEY_ORDER if body.get(key) is not None}
+
+
 def dumps(contract: Contract, *, header: bool = True) -> str:
     payload: dict[str, Any] = {"version": contract.version}
     if contract.generated_by:
@@ -426,6 +597,11 @@ def dumps(contract: Contract, *, header: bool = True) -> str:
         }
         tables[name] = body
     payload["tables"] = tables
+
+    if contract.relationships:
+        payload["relationships"] = [
+            _relationship_body(relationship) for relationship in contract.relationships
+        ]
 
     text = yaml.dump(
         payload,
@@ -469,6 +645,13 @@ def dump_directory(contract: Contract, path: str, *, header: bool = True) -> lis
             generated_at=contract.generated_at,
             defaults=contract.defaults,
             tables={name: table},
+            # The clause lives with the table holding the key, so one file still
+            # reads as a complete statement about one table.
+            relationships=[
+                relationship
+                for relationship in contract.relationships
+                if relationship.from_table == name
+            ],
         )
         safe = "".join(c if (c.isalnum() or c in "_-.") else "_" for c in name) or "table"
         target = os.path.join(path, f"{safe}.yml")
@@ -480,6 +663,7 @@ def dump_directory(contract: Contract, path: str, *, header: bool = True) -> lis
 
 __all__ = [
     "ContractError",
+    "validate_relationship_targets",
     "loads",
     "load",
     "load_directory",

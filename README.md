@@ -156,6 +156,12 @@ tables:
         type: text
         no_pii: true
         known_issues: [mojibake]
+
+relationships:
+  - means: Every order belongs to a customer.
+    from: orders.customer_id
+    to: customers.id
+    cardinality: many_to_one
 ```
 
 **`zeyvor check` needs no API key.** A language model is used exactly once, at generation time, to write the `means` lines — and it may only ever *remove* an assertion it judges unsafe, never add one. Checking is templated and deterministic, so it is free, instant, identical between runs, and needs no secret in CI.
@@ -164,7 +170,9 @@ tables:
 
 **Tolerances everywhere.** `nullable: false` has `max_null_rate` beside it; `defaults: {on_violation: warn}` turns the whole contract into a report so a team can adopt it without breaking their pipeline on day one; `ignore: true` retires a check while keeping the intent visible in review.
 
-Twenty violation types, each with a default severity. `type_contaminated` is deliberately separate from `type_changed`: a column at 99.8% dates has *not* changed type, so equality checks pass it, and it is the case this exists to catch. Cascade suppression keeps one problem from producing five findings — a changed type silences the format, range and category clauses that follow from it.
+**Relationships are checked across tables.** Give `init` more than one source and it proposes foreign keys from column names and uniqueness — deterministically, with no model involved, because a relationship is an assertion that fails builds and the model is only ever allowed to remove assertions here. `check` then measures each one with a single pushed-down anti-join: orphan rows, distinct missing keys, and whether the parent's key is still unique enough for the join not to fan out. `max_orphan_rate` exists for the soft-deleted dimension every real warehouse has somewhere.
+
+Twenty-three violation types, each with a default severity. `type_contaminated` is deliberately separate from `type_changed`: a column at 99.8% dates has *not* changed type, so equality checks pass it, and it is the case this exists to catch. Cascade suppression keeps one problem from producing five findings — a changed type silences the format, range and category clauses that follow from it.
 
 ## How it works
 
@@ -225,6 +233,9 @@ Every case below is a real production failure that passes conventional checks. E
 | `whitespace_padding` | `' Alice'` and `'Alice'` are two customers to a `GROUP BY` |
 | `declared_type_conflict` | The schema and the data disagree outright |
 | `enum_candidate` | The category set a contract will be written against |
+| `fk_orphans` | Child rows point at parents that are no longer there |
+| `fk_fanout` | A parent key gained duplicates, so every join through it multiplies rows |
+| `relationship_uncheckable` | A join cannot be measured, so a green build is not evidence |
 
 Precision is treated as seriously as recall. Five-digit numbers are *not* reported as postal codes, `11.03.2024` is *not* reported as a phone number, and a date column sprinkled with `N/A` is *not* reported for inconsistent capitalisation — because a checker that cries wolf gets uninstalled in a week.
 

@@ -111,6 +111,62 @@ class Defaults:
     on_violation: Severity = Severity.FAIL
 
 
+class Cardinality(str, Enum):
+    """How many child rows may point at one parent row.
+
+    Recorded because it decides what a broken relationship *does*. A
+    ``many_to_one`` whose parent key gains duplicates makes every join built on
+    it multiply rows, which is a different failure from an orphan and needs
+    saying differently.
+    """
+
+    MANY_TO_ONE = "many_to_one"
+    ONE_TO_ONE = "one_to_one"
+
+
+@dataclass
+class Relationship:
+    """A foreign key: ``from_table.from_column`` points at ``to_table.to_column``.
+
+    The direction is always child → parent, so `from` is the side holding the
+    foreign key. That is the only orientation the checks need, and allowing the
+    reverse would mean every rule below had to ask which way round it was.
+    """
+
+    from_table: str
+    from_column: str
+    to_table: str
+    to_column: str
+    cardinality: Cardinality = Cardinality.MANY_TO_ONE
+
+    max_orphan_rate: float | None = None
+    """Share of child rows allowed to reference a missing parent. None means
+    zero — a foreign key that permits orphans is not really a foreign key. It
+    exists because real warehouses have a soft-deleted dimension somewhere, and
+    a rule you cannot relax is a rule that gets deleted."""
+
+    means: str | None = None
+    known_issues: list[str] = field(default_factory=list)
+    ignore: bool = False
+    on_violation: Severity | None = None
+
+    @property
+    def child(self) -> str:
+        return f"{self.from_table}.{self.from_column}"
+
+    @property
+    def parent(self) -> str:
+        return f"{self.to_table}.{self.to_column}"
+
+    @property
+    def key(self) -> str:
+        """Stable identity, for de-duplication and for addressing one in the CLI."""
+        return f"{self.child}->{self.parent}"
+
+    def __str__(self) -> str:  # pragma: no cover - display only
+        return self.key
+
+
 @dataclass
 class Contract:
     version: int = CONTRACT_SCHEMA_VERSION
@@ -118,9 +174,16 @@ class Contract:
     generated_at: str = ""
     defaults: Defaults = field(default_factory=Defaults)
     tables: dict[str, TableContract] = field(default_factory=dict)
+    relationships: list[Relationship] = field(default_factory=list)
 
     def table(self, name: str) -> TableContract | None:
         return self.tables.get(name)
+
+    def relationships_for(self, table: str) -> list[Relationship]:
+        """Every relationship this table takes part in, either end."""
+        return [
+            rel for rel in self.relationships if rel.from_table == table or rel.to_table == table
+        ]
 
     def resolve_severity(
         self,
@@ -151,6 +214,8 @@ class Contract:
 
 __all__ = [
     "CONTRACT_SCHEMA_VERSION",
+    "Cardinality",
+    "Relationship",
     "Severity",
     "ColumnContract",
     "TableContract",

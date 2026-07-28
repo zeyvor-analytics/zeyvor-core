@@ -23,6 +23,7 @@ from ..contract import (
     load,
 )
 from ..contract.generate import generate_column_contract
+from ..contract.violations import ViolationType
 from ..engines.base import EngineError
 from ..profile import ProfileOptions, TableProfile, profile_source
 from .render import Console, render_report
@@ -184,6 +185,16 @@ def cmd_init(args, console: Console) -> int:
 
     contract = generate_contract(profiles, describer=describer)
 
+    # Foreign keys, when there is more than one table to join. Rules only — no
+    # model is asked, because a relationship is an assertion that fails builds and
+    # the model is only ever allowed to remove assertions here, never invent them.
+    if len(profiles) > 1:
+        from ..relations import infer_relationships
+
+        contract.relationships = infer_relationships(profiles)
+        if contract.relationships:
+            console.step(f"found {len(contract.relationships)} relationship(s)")
+
     # dump() decides between one file and a directory of per-table files, so
     # `-o zeyvor/` does the obvious thing for a project with many models.
     try:
@@ -217,12 +228,18 @@ def _report_what_was_written(
     console.out(f"  {closed} with a closed category set")
     console.out(f"  {formats} with a pinned format")
     console.out(f"  {ranges} with a range")
+    if contract.relationships:
+        console.out(f"  {len(contract.relationships)} relationship(s) between tables")
     if known:
         console.out(f"  {known} with pre-existing issues recorded as accepted")
     console.out("")
     if not described:
         console.out("  Descriptions were not written. Set ANTHROPIC_API_KEY and re-run")
         console.out("  with --force to add them, or fill in `means:` by hand.")
+        console.out("")
+    if contract.relationships:
+        console.out("  Relationships were guessed from column names and uniqueness.")
+        console.out("  Check them especially closely — a wrong one fails builds.")
         console.out("")
     console.out("  Read it, correct anything wrong, and commit it.")
     console.out("  Then: zeyvor check")
@@ -248,7 +265,100 @@ def _scope_to(contract: Contract, profiles: list[TableProfile]) -> Contract:
         generated_at=contract.generated_at,
         defaults=contract.defaults,
         tables={name: t for name, t in contract.tables.items() if name in names},
+        # A relationship with one end out of scope cannot be measured, and
+        # reporting it as unmeasurable on every scoped run would be noise.
+        relationships=[
+            relationship
+            for relationship in contract.relationships
+            if relationship.from_table in names and relationship.to_table in names
+        ],
     )
+
+
+def _table_sources(args, contract: Contract, profiles: list[TableProfile]) -> dict[str, str]:
+    """Where each checked table was actually read from.
+
+    Relationship measurement needs to re-open both sides in one engine, so it
+    needs the source strings rather than the profiles. The profile records the
+    URI it used, which is more reliable than re-deriving it: it already accounts
+    for --table, for dbt, and for a single source checked against a single-table
+    contract under a different name.
+    """
+    sources: dict[str, str] = {}
+    for profile in profiles:
+        if profile.source_uri:
+            sources[profile.name] = profile.source_uri
+    for name, table in contract.tables.items():
+        sources.setdefault(name, table.source)
+    return {name: source for name, source in sources.items() if source}
+
+
+def _measure_relationships(
+    args, contract: Contract, profiles: list[TableProfile], console: Console
+):
+    """Measure every relationship, one engine per pair.
+
+    Both sides have to be readable from the same connection for a join to be
+    possible at all. Opening the child's source gives an engine; the parent is
+    then resolved *into that engine*, which works for two local files (DuckDB
+    reads both) and for two tables in one warehouse (the usual case). A child and
+    parent genuinely living in different systems cannot be joined here, and the
+    attempt fails cleanly into a `relationship_uncheckable` warning rather than
+    pretending the keys matched.
+    """
+    from ..relations import RelationshipMeasurement, measure_relationship
+    from ..sources import resolve_source
+
+    if not contract.relationships:
+        return []
+
+    sources = _table_sources(args, contract, profiles)
+    measurements = []
+
+    for relationship in contract.relationships:
+        if relationship.ignore:
+            continue
+
+        child_source = sources.get(relationship.from_table)
+        parent_source = sources.get(relationship.to_table)
+        if not child_source or not parent_source:
+            missing = relationship.from_table if not child_source else relationship.to_table
+            measurements.append(
+                RelationshipMeasurement(
+                    relationship=relationship,
+                    error=f"no source recorded for '{missing}'",
+                )
+            )
+            continue
+
+        console.step(f"checking {relationship.key}")
+        resolved = None
+        try:
+            resolved = resolve_source(
+                child_source,
+                memory_limit=getattr(args, "memory_limit", None),
+                threads=getattr(args, "threads", None),
+            )
+            parent = resolve_source(parent_source, engine=resolved.engine)
+            measurements.append(
+                measure_relationship(
+                    resolved.engine, relationship, resolved.relation, parent.relation
+                )
+            )
+        except (EngineError, FileNotFoundError, ValueError) as exc:
+            measurements.append(
+                RelationshipMeasurement(relationship=relationship, error=_one_line(exc))
+            )
+        finally:
+            if resolved is not None:
+                resolved.close()
+
+    return measurements
+
+
+def _one_line(exc: Exception, limit: int = 140) -> str:
+    text = " ".join(str(exc).split())
+    return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
 def cmd_check(args, console: Console) -> int:
@@ -260,6 +370,20 @@ def cmd_check(args, console: Console) -> int:
     if args.sources or getattr(args, "models", None):
         contract = _scope_to(contract, profiles)
     report = check(profiles, contract)
+
+    # Cross-table checks come after the per-column ones, and are skipped when a
+    # table is already missing: a join cannot be measured against a table that is
+    # not there, and reporting both would be two messages for one cause.
+    if contract.relationships and not report.has(ViolationType.TABLE_MISSING):
+        from ..relations import check_relationships
+
+        measurements = _measure_relationships(args, contract, profiles, console)
+        relationship_violations = check_relationships(
+            contract, measurements, existing=report.violations
+        )
+        if relationship_violations:
+            report.violations.extend(relationship_violations)
+        report.relationships_checked = sum(1 for m in measurements if m.measured)
 
     payload = report.to_dict()
     fmt = "json" if getattr(args, "json", False) else getattr(args, "format", "text")

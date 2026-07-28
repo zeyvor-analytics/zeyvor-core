@@ -172,7 +172,7 @@ relationships:
 
 **Relationships are checked across tables.** Give `init` more than one source and it proposes foreign keys from column names and uniqueness — deterministically, with no model involved, because a relationship is an assertion that fails builds and the model is only ever allowed to remove assertions here. `check` then measures each one with a single pushed-down anti-join: orphan rows, distinct missing keys, and whether the parent's key is still unique enough for the join not to fan out. `max_orphan_rate` exists for the soft-deleted dimension every real warehouse has somewhere.
 
-Twenty-three violation types, each with a default severity. `type_contaminated` is deliberately separate from `type_changed`: a column at 99.8% dates has *not* changed type, so equality checks pass it, and it is the case this exists to catch. Cascade suppression keeps one problem from producing five findings — a changed type silences the format, range and category clauses that follow from it.
+Twenty-four violation types, each with a default severity. `type_contaminated` is deliberately separate from `type_changed`: a column at 99.8% dates has *not* changed type, so equality checks pass it, and it is the case this exists to catch. Cascade suppression keeps one problem from producing five findings — a changed type silences the format, range and category clauses that follow from it.
 
 ## How it works
 

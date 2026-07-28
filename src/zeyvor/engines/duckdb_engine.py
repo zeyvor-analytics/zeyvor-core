@@ -106,7 +106,10 @@ class DuckDBEngine(Engine):
         try:
             return self._conn.execute(sql).fetchall()
         except Exception as exc:
-            raise EngineError(str(exc)) from exc
+            message = str(exc)
+            if "Out of Memory" in message:
+                raise EngineError(_out_of_memory_advice(message)) from exc
+            raise EngineError(message) from exc
 
     def columns(self, relation: Relation) -> list[tuple[str, str]]:
         rows = self.execute(f"DESCRIBE SELECT * FROM {relation.sql}")
@@ -116,3 +119,16 @@ class DuckDBEngine(Engine):
     def close(self) -> None:
         with contextlib.suppress(Exception):  # pragma: no cover
             self._conn.close()
+
+
+def _out_of_memory_advice(message: str) -> str:
+    """Replace DuckDB's own advice with advice the user can actually act on."""
+    first = message.split("\n")[0].strip()
+    return (
+        f"{first}\n"
+        "  The batch size is what controls this: each column in a batch adds "
+        "~43 aggregate\n"
+        "  expressions to one query. Try --batch-size 5 (slower, much less "
+        "memory), or raise\n"
+        "  --memory-limit if the machine has room."
+    )

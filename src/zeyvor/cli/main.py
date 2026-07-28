@@ -107,7 +107,13 @@ def _add_source_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--memory-limit", dest="memory_limit", help="Cap engine memory, e.g. 1GB")
     parser.add_argument("--threads", type=int, help="Cap engine threads")
     parser.add_argument(
-        "--batch-size", dest="batch_size", type=int, default=20, help=argparse.SUPPRESS
+        "--batch-size",
+        dest="batch_size",
+        type=int,
+        default=20,
+        metavar="N",
+        help="Columns measured per query (default: 20). This is the memory "
+        "lever — lower it if the engine runs out of memory",
     )
 
 

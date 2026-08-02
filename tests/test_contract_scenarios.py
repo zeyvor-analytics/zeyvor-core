@@ -19,6 +19,7 @@ FIXTURES = [
     "enum_drift.csv",
     "excel_serials.csv",
     "unit_shift.csv",
+    "unpadded_codes.csv",
     "wide.csv",
 ]
 
@@ -172,6 +173,40 @@ def test_dollars_becoming_cents_is_caught_as_a_unit_shift(profile_fixture, duck)
     assert not report.has(ViolationType.RANGE_EXCEEDED, "amount")
     # And crucially, no type violation — the type is exactly what it was.
     assert not report.has(ViolationType.TYPE_CHANGED, "amount")
+
+
+# ── 3b. a zero-padded code read as a number ───────────────────────────────────
+
+
+def test_losing_leading_zeros_breaks_the_contract(profile_fixture, baseline_contract):
+    """`00123` becoming `123` is what happens when a padded code meets `int`.
+
+    This passed clean for a long time. `_should_pin_format` excluded numeric
+    columns outright — right for auto-increment ids, whose digit count grows,
+    and wrong for padded codes, whose width is fixed by the padding. So the
+    contract said `type: integer` with no format clause, and the one property
+    that mattered was asserted nowhere. The profiler had measured
+    `leading_zeros` all along; `known_issues` recorded it and nothing checked it.
+    """
+    contract = baseline_contract("messy.csv")
+    account_code = contract.tables["messy"].columns["account_code"]
+    assert account_code.formats == ["#####"], "the padded width must be pinned"
+
+    stripped = profile_fixture("unpadded_codes.csv", as_name="messy")
+    report = check(stripped, contract)
+
+    assert not report.ok
+    assert report.has(ViolationType.FORMAT_CHANGED, "account_code")
+
+
+def test_an_unpadded_id_column_still_gets_no_format_clause(profile_fixture):
+    """The exclusion this narrows exists for a good reason — keep it working.
+
+    `order_id` counts upward and its digit count will grow, so pinning `####`
+    would schedule a failure for the day it reaches 10,000.
+    """
+    contract = generate_contract(profile_fixture("clean_orders.csv"))
+    assert contract.tables["clean_orders"].columns["order_id"].formats == []
 
 
 # ── 4. structural change ──────────────────────────────────────────────────────

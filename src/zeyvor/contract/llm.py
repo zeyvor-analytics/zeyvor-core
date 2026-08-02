@@ -53,9 +53,23 @@ it may only ever REMOVE a proposed clause. Valid entries: "categories_closed" \
 (the category set looks like it will grow — new statuses, new countries, new \
 plan names), "formats" (the format looks incidental rather than guaranteed), \
 "unique" (uniqueness looks coincidental in this sample), "max" or "min" (the \
-range looks likely to be exceeded by ordinary growth). Omit or leave empty when \
-everything looks safe. Be conservative: only flag a clause when you have a \
-concrete reason.
+range looks likely to be exceeded by ordinary growth).
+
+Rules for the "unsafe" list:
+- Only name a clause that appears in that column's "proposed_clauses". \
+Withdrawing a clause nobody proposed does nothing and obscures the withdrawals \
+that matter.
+- Withdraw per column, on that column's evidence. If your list is the same for \
+every column in the table, you are applying a policy rather than reading the \
+data — go back and decide which columns genuinely differ.
+- Each withdrawal needs a concrete reason you could state in a sentence. \
+"Might grow" is not one; "status sets gain new values whenever a workflow step \
+is added" is.
+- Withdrawing both "min" and "max" on a numeric column removes the only clause \
+that can catch a unit change — the day a currency column moves from dollars to \
+cents, nothing will notice. Withdraw both only when you specifically intend that.
+- Silence is the common case. A table where nothing is withdrawn is a normal \
+outcome, not a failure to engage.
 """
 
 # Only these clauses may be withdrawn on the model's advice.

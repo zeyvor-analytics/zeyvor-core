@@ -211,9 +211,18 @@ def _should_pin_format(column, policy: RangePolicy) -> bool:
     Two exclusions matter, and both were found by generating a contract and
     immediately checking it against its own source data:
 
-    Numbers are excluded outright. Their shape is a digit count, and digit
-    counts grow — pinning ``####`` on an id column schedules a failure for the
-    day it reaches 10,000.
+    Numbers are excluded, because their shape is a digit count and digit counts
+    grow — pinning ``####`` on an id column schedules a failure for the day it
+    reaches 10,000.
+
+    Zero-padded numbers are the exception, and excluding them too was a real
+    miss. Padding is what fixes a width: ``00123`` is five characters because
+    someone decided the code is five characters, not because the count happens
+    to be small today. Dropping the exception meant `account_code` got
+    ``type: integer`` and no format clause, so the load that turned ``00123``
+    into ``123`` — the ordinary consequence of reading the column as a number —
+    passed the check clean. `leading_zeros` was measured and recorded the whole
+    time; nothing asserted it.
 
     Elsewhere the shapes must either be temporal (where several genuine formats
     coexist and each is meaningful) or all the same length. Email addresses vary
@@ -222,7 +231,8 @@ def _should_pin_format(column, policy: RangePolicy) -> bool:
     """
     if not column.shapes:
         return False
-    if column.inferred_type in NUMERIC_TYPES:
+    padded = Observation.LEADING_ZEROS.value in column.observations
+    if column.inferred_type in NUMERIC_TYPES and not padded:
         return False
     coverage = column.shape_coverage or 0.0
     distinct_shapes = column.shape_distinct_count or len(column.shapes)

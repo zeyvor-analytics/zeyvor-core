@@ -7,7 +7,7 @@
 # visible in review.
 
 version: 1
-generated_by: 'zeyvor 0.1.0  # descriptions unavailable: Error code: 401 - {''type'': ''error'', ''error'': {''type'': ''authentication_error'', ''message'': ''invalid x-api-key''}, ''request_id'': ''req_011CdeajjcuDK8YHmSuVGDcQ''}'
+generated_by: zeyvor 0.1.0
 generated_at: '2026-08-02'
 tables:
   clean_orders:
@@ -16,42 +16,43 @@ tables:
     min_rows: 1
     columns:
       order_id:
+        means: Unique identifier assigned to each order, used as the primary key for joining order records.
         type: integer
         nullable: false
         unique: true
         no_pii: true
       customer_email:
+        means: Email address of the customer who placed the order, used for contact and identity matching; contains personal data.
         type: email
         nullable: false
       signup_date:
+        means: Calendar date on which the customer registered their account.
         type: date
         formats: ['####-##-##']
         nullable: false
         min: '2024-01-01'
-        max: today
         no_pii: true
       status:
+        means: Current fulfilment state of the order, such as pending, shipped, delivered or refunded.
         type: text
         nullable: false
         categories: [delivered, pending, refunded, shipped]
-        categories_closed: true
         no_pii: true
       amount:
+        means: Total value of the order in the transaction currency (appears to be USD).
         type: float
         nullable: false
-        min: 0
-        max: 800
         no_pii: true
       country:
+        means: Two-letter ISO country code for the market the order belongs to.
         type: text
         formats: [aa]
         nullable: false
         categories: [DE, FR, GB, US]
-        categories_closed: true
         no_pii: true
       item_count:
+        means: Number of individual items included in the order, where zero indicates an order with no line items.
         type: integer
         nullable: false
         min: 0
-        max: 20
         no_pii: true

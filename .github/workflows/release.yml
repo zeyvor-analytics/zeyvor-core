@@ -6,10 +6,18 @@ name: release
 #
 # Uses PyPI trusted publishing (OIDC), so there is no API token in this repo's
 # secrets — nothing to leak, nothing to rotate. Configure it once at
-# https://pypi.org/manage/project/zeyvor/settings/publishing/ with:
+# https://pypi.org/manage/account/publishing/ with:
 #
-#     owner: zeyvor            repository: zeyvor
-#     workflow: release.yml    environment: pypi
+#     PyPI project name: zeyvor
+#     owner:             zeyvor-analytics
+#     repository:        zeyvor-core
+#     workflow:          release.yml
+#     environment:       pypi
+#
+# Note the package and the repository are named differently: the package is
+# `zeyvor` because that is what people type, and the repository is `zeyvor-core`
+# to distinguish it from the website. PyPI matches on the repository, so it is
+# the latter that goes in the publisher config.
 
 on:
   push:

@@ -163,3 +163,67 @@ def test_every_violation_type_has_a_default_severity():
 
     missing = [t.value for t in ViolationType if t not in DEFAULT_SEVERITY]
     assert not missing, f"no default severity for: {missing}"
+
+
+# ── things that only break on Windows ─────────────────────────────────────────
+#
+# Both of these passed on Linux and macOS and failed on the first Windows CI run
+# of the published repo. They are pinned here because the failure mode is
+# platform-specific, which means local development will never surface it.
+
+
+def test_a_duckdb_uri_keeps_its_relative_path():
+    """`duckdb:///wh.db` must open `wh.db`, on every platform.
+
+    The original had a `!= "nt"` guard that left the leading slash on Windows,
+    so DuckDB was handed `//wh.db` and refused it. Stripping is correct on both:
+    a Windows absolute URI is `duckdb:///C:/data/wh.db`, and `C:/data/wh.db` is
+    precisely the path to open.
+    """
+    import re
+
+    with open(os.path.join(ROOT, "src", "zeyvor", "sources.py"), encoding="utf-8") as handle:
+        source = handle.read()
+    stripping = re.search(r"db_path = db_path\[1:\] if db_path\.startswith\(\"/\"\)(.*)", source)
+    assert stripping, "the duckdb path-stripping line has moved"
+    assert "nt" not in stripping.group(1), (
+        "the leading slash must come off on every platform, Windows included"
+    )
+
+
+def test_every_file_is_opened_with_an_explicit_encoding():
+    """Windows defaults to cp1252, so an unqualified open() round-trips text
+    through the wrong codec and blows up on the first em-dash.
+
+    Parsed rather than grepped: a line-based version flagged its own source and
+    a docstring example, and missed a call split across two lines. The AST sees
+    real calls and nothing else.
+    """
+    import ast
+    import pathlib
+
+    offenders = []
+    for path in sorted(
+        list(pathlib.Path(ROOT, "src").rglob("*.py"))
+        + list(pathlib.Path(ROOT, "tests").rglob("*.py"))
+    ):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            name = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
+            if name != "open":
+                continue
+            # A binary mode has no encoding to declare.
+            modes = [
+                a.value
+                for a in node.args[1:2]
+                if isinstance(a, ast.Constant) and isinstance(a.value, str)
+            ]
+            if any("b" in mode for mode in modes):
+                continue
+            if any(kw.arg == "encoding" for kw in node.keywords):
+                continue
+            offenders.append(f"{path.relative_to(ROOT)}:{node.lineno}")
+
+    assert not offenders, "open() without encoding=: " + ", ".join(offenders)

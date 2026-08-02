@@ -81,7 +81,7 @@ Done when the descriptions are good enough to show a stranger, and the cost of
 What a user writes:
 
 ```yaml
-- uses: zeyvor/zeyvor-action@v1
+- uses: zeyvor-analytics/zeyvor-core@v1
   with:
     contract: zeyvor.yml
     warn-only: false

@@ -1,14 +1,14 @@
 """Contracts: what the data is supposed to mean, and whether it still does.
 
     from zeyvor import profile_source
-    from zeyvor.contract import generate_contract, check, dumps, loads
+    from zeyvor.contract import generate_contract, check, dump, load
 
     baseline = profile_source("orders.csv")
     contract = generate_contract(baseline)          # add describer= for prose
-    open("zeyvor.yml", "w").write(dumps(contract))
+    dump(contract, "zeyvor.yml")
 
     # later, in CI
-    report = check(profile_source("orders.csv"), loads(open("zeyvor.yml").read()))
+    report = check(profile_source("orders.csv"), load("zeyvor.yml"))
     print(report.render())
     raise SystemExit(report.exit_code)
 

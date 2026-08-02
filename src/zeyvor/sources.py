@@ -217,7 +217,13 @@ def resolve_source(
             if not fragment:
                 raise ValueError("DuckDB sources need a table: duckdb:///file.db#table")
             db_path = uri.split("://", 1)[1]
-            db_path = db_path[1:] if db_path.startswith("/") and os.name != "nt" else db_path
+            # `duckdb:///wh.db` means an empty host and the path `/wh.db`, so one
+            # leading slash always comes off. The Windows exception that used to
+            # live here was backwards: it left `/wh.db`, which DuckDB read as
+            # `//wh.db` and rejected. Stripping is right on both — a Windows
+            # absolute URI is `duckdb:///C:/data/wh.db`, and `C:/data/wh.db` is
+            # exactly what should be opened.
+            db_path = db_path[1:] if db_path.startswith("/") else db_path
             eng = DuckDBEngine(db_path or ":memory:", threads=threads, memory_limit=memory_limit)
             return ResolvedSource(
                 engine=eng,

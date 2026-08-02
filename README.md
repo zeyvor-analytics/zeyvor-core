@@ -78,7 +78,7 @@ Exit codes are part of the interface: `0` matched, `1` the data violated the con
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: zeyvor/zeyvor@v1
+- uses: zeyvor-analytics/zeyvor-core@v1
     with:
       contract: zeyvor.yml
 ```

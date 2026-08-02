@@ -30,13 +30,15 @@ def break_dates(path, *, rows: int = 3) -> None:
     """Simulate the upstream change: some dates arrive as epoch timestamps."""
     import csv
 
-    with open(path) as handle:
+    # encoding is explicit because Windows would otherwise use cp1252, write the
+    # fixture's em-dashes as 0x97, and then fail when the CLI reads it as UTF-8.
+    with open(path, encoding="utf-8") as handle:
         data = list(csv.reader(handle))
     head, body = data[0], data[1:]
     index = head.index("signup_date")
     for row in body[:rows]:
         row[index] = "1714089600"
-    with open(path, "w", newline="") as handle:
+    with open(path, "w", newline="", encoding="utf-8") as handle:
         csv.writer(handle).writerows([head, *body])
 
 

@@ -53,7 +53,7 @@ def test_init_writes_a_valid_contract(project, capsys):
 
     from zeyvor.contract import loads
 
-    contract = loads(path.read_text())
+    contract = loads(path.read_text(encoding="utf-8"))
     assert set(contract.tables) == {"orders"}
     assert contract.tables["orders"].source == "orders.csv"
 
@@ -95,7 +95,7 @@ def test_init_covers_several_sources(project, capsys):
 
     from zeyvor.contract import loads
 
-    contract = loads((project / "zeyvor.yml").read_text())
+    contract = loads((project / "zeyvor.yml").read_text(encoding="utf-8"))
     assert set(contract.tables) == {"orders", "messy"}
 
 
@@ -211,7 +211,8 @@ def test_check_without_a_contract_points_at_init(project, capsys):
 
 def test_a_typo_in_the_contract_is_reported_with_its_line(project, capsys):
     (project / "bad.yml").write_text(
-        "version: 1\ntables:\n  orders:\n    columns:\n      c:\n        nullible: false\n"
+        "version: 1\ntables:\n  orders:\n    columns:\n      c:\n        nullible: false\n",
+        encoding="utf-8",
     )
     assert main(["check", "-c", "bad.yml"]) == EXIT_ERROR
     err = capsys.readouterr().err
@@ -303,13 +304,13 @@ def test_accept_prints_what_it_relaxed(project, capsys):
 
 def test_accept_dry_run_changes_nothing(project, capsys):
     main(["init", "orders.csv"])
-    before = (project / "zeyvor.yml").read_text()
+    before = (project / "zeyvor.yml").read_text(encoding="utf-8")
     break_dates(project / "orders.csv")
     capsys.readouterr()
 
     assert main(["accept", "--dry-run"]) == EXIT_OK
     assert "Would change" in capsys.readouterr().out
-    assert (project / "zeyvor.yml").read_text() == before
+    assert (project / "zeyvor.yml").read_text(encoding="utf-8") == before
 
 
 def test_accept_preserves_what_a_human_wrote(project):
@@ -320,7 +321,7 @@ def test_accept_preserves_what_a_human_wrote(project):
     column = contract.tables["orders"].columns["signup_date"]
     column.means = "Calendar date the customer signed up."
     column.on_violation = Severity.WARN
-    (project / "zeyvor.yml").write_text(dumps(contract))
+    (project / "zeyvor.yml").write_text(dumps(contract), encoding="utf-8")
 
     break_dates(project / "orders.csv")
     # Named explicitly, because the column was downgraded to a warning and bare
@@ -340,7 +341,7 @@ def test_accept_explains_how_to_bless_a_warning(project, capsys):
     main(["init", "orders.csv"])
     contract = load("zeyvor.yml")
     contract.tables["orders"].columns["signup_date"].on_violation = Severity.WARN
-    (project / "zeyvor.yml").write_text(dumps(contract))
+    (project / "zeyvor.yml").write_text(dumps(contract), encoding="utf-8")
     break_dates(project / "orders.csv")
     capsys.readouterr()
 

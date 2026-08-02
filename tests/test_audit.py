@@ -191,13 +191,21 @@ def test_a_duckdb_uri_keeps_its_relative_path():
     )
 
 
-def test_every_file_is_opened_with_an_explicit_encoding():
-    """Windows defaults to cp1252, so an unqualified open() round-trips text
-    through the wrong codec and blows up on the first em-dash.
+TEXT_IO = ("open", "read_text", "write_text")
 
-    Parsed rather than grepped: a line-based version flagged its own source and
-    a docstring example, and missed a call split across two lines. The AST sees
-    real calls and nothing else.
+
+def test_every_file_is_opened_with_an_explicit_encoding():
+    """Windows defaults to cp1252, so unqualified text IO round-trips through
+    the wrong codec and blows up on the first em-dash.
+
+    Covers `Path.read_text` and `Path.write_text` as well as `open`, because the
+    first version of this test checked only `open` — and the second Windows CI
+    run failed on exactly the calls it did not look at. The contract header's
+    em-dash lands at byte 23, which is the position in every one of those
+    tracebacks.
+
+    Parsed rather than grepped: a line-based attempt flagged its own source and
+    a docstring example, and missed a call split across two lines.
     """
     import ast
     import pathlib
@@ -212,7 +220,7 @@ def test_every_file_is_opened_with_an_explicit_encoding():
             if not isinstance(node, ast.Call):
                 continue
             name = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
-            if name != "open":
+            if name not in TEXT_IO:
                 continue
             # A binary mode has no encoding to declare.
             modes = [
@@ -220,10 +228,10 @@ def test_every_file_is_opened_with_an_explicit_encoding():
                 for a in node.args[1:2]
                 if isinstance(a, ast.Constant) and isinstance(a.value, str)
             ]
-            if any("b" in mode for mode in modes):
+            if name == "open" and any("b" in mode for mode in modes):
                 continue
             if any(kw.arg == "encoding" for kw in node.keywords):
                 continue
             offenders.append(f"{path.relative_to(ROOT)}:{node.lineno}")
 
-    assert not offenders, "open() without encoding=: " + ", ".join(offenders)
+    assert not offenders, "text IO without encoding=: " + ", ".join(offenders)

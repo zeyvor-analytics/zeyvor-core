@@ -42,7 +42,10 @@ jobs:
         run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
 
       - name: Test
-        run: python -m pytest -q
+        # warn_default_encoding turns any reliance on the platform's default
+        # text encoding into an error. Without it, the Windows runner is the
+        # first thing that discovers a missing `encoding=` — as it was twice.
+        run: python -X warn_default_encoding -W error::EncodingWarning -m pytest -q
 
       # The suite is offline by design; prove it rather than trusting it.
       - name: Confirm the CLI runs from the install

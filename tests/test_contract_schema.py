@@ -277,7 +277,7 @@ def test_dump_and_load_from_disk(tmp_path):
 
 def write(tmp_path, name: str, body: str):
     path = tmp_path / name
-    path.write_text(body)
+    path.write_text(body, encoding="utf-8")
     return path
 
 

@@ -129,6 +129,11 @@ def _git(*args: str) -> str:
             ["git", *args],
             capture_output=True,
             text=True,
+            # Explicit, because text=True otherwise decodes with the locale
+            # encoding — cp1252 on Windows, which mangles a branch name with a
+            # non-ASCII character in it.
+            encoding="utf-8",
+            errors="replace",
             timeout=3,
             check=False,
         )

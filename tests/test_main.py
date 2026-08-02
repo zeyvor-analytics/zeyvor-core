@@ -27,6 +27,7 @@ def test_running_the_module_works(tmp_path):
         [sys.executable, "-m", "zeyvor", "profile", fixture_path("clean_orders.csv"), "--json"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         cwd=tmp_path,
         env={"PYTHONPATH": _src_dir(), "PATH": "/usr/bin:/bin"},
     )
@@ -40,6 +41,7 @@ def test_module_help_lists_the_commands(tmp_path):
         [sys.executable, "-m", "zeyvor"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         cwd=tmp_path,
         env={"PYTHONPATH": _src_dir(), "PATH": "/usr/bin:/bin"},
     )

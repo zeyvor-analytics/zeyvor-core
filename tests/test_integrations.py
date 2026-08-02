@@ -96,7 +96,7 @@ def test_a_manifest_from_the_future_or_the_past_is_read_defensively():
 
 def test_something_that_is_not_a_manifest_says_so(tmp_path):
     path = tmp_path / "manifest.json"
-    path.write_text(json.dumps({"hello": "world"}))
+    path.write_text(json.dumps({"hello": "world"}), encoding="utf-8")
     with pytest.raises(DbtError, match="nodes"):
         models(load_manifest(str(path)))
 

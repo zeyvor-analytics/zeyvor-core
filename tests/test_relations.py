@@ -626,8 +626,8 @@ def test_relationships_are_not_lost_by_a_directory_round_trip(tmp_path):
 
     assert sorted(os.listdir(tmp_path)) == ["customers.yml", "orders.yml"]
     # The clause is written into the child's file only.
-    assert "relationships" in (tmp_path / "orders.yml").read_text()
-    assert "relationships" not in (tmp_path / "customers.yml").read_text()
+    assert "relationships" in (tmp_path / "orders.yml").read_text(encoding="utf-8")
+    assert "relationships" not in (tmp_path / "customers.yml").read_text(encoding="utf-8")
 
     reloaded = load_directory(str(tmp_path))
     assert [rel.key for rel in reloaded.relationships] == ["orders.customer_id->customers.id"]

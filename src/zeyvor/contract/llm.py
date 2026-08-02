@@ -19,8 +19,12 @@ from typing import Any
 from ..profile.models import TableProfile
 from .models import TableContract
 
-MODEL = "claude-sonnet-4-20250514"
-MAX_TOKENS = 4096
+MODEL = "claude-opus-5"
+
+# Thinking and the reply share this budget on current models, and a wide table
+# asks for sixty descriptions in one JSON object. 4096 was sized for the reply
+# alone and would now truncate mid-object.
+MAX_TOKENS = 16000
 
 SYSTEM_PROMPT = """\
 You are documenting a data contract. For each column you are given measured \
@@ -120,6 +124,28 @@ def build_prompt(profile: TableProfile, table: TableContract) -> str:
     )
 
 
+def response_text(message: Any) -> str:
+    """The written reply, from a response that may hold more than one block.
+
+    Never ``content[0]``. Models think by default now, so the first block is
+    routinely a thinking block — and because thinking text is withheld unless
+    asked for, that block stringifies to something that merely *looks* like an
+    unparseable reply. The failure would read as "the model wrote nonsense"
+    rather than "we read the wrong block".
+    """
+    parts = [
+        block.text
+        for block in getattr(message, "content", []) or []
+        if getattr(block, "type", "") == "text"
+    ]
+    if not parts:
+        raise ValueError(
+            "The response carried no text block "
+            f"(blocks: {[getattr(b, 'type', '?') for b in getattr(message, 'content', []) or []]})"
+        )
+    return "\n".join(parts)
+
+
 def parse_response(raw: str) -> dict[str, dict[str, Any]]:
     """Extract the columns mapping from a model response, strictly."""
     text = raw.strip()
@@ -216,16 +242,17 @@ class ClaudeDescriber:
 
     def __call__(self, profile: TableProfile, table: TableContract) -> dict[str, str]:
         client = self._ensure_client()
+        # No `temperature`. Current models reject sampling parameters outright,
+        # and the `temperature=0` this used to send never actually guaranteed
+        # identical output — it bought a reproducibility that was not real.
+        # What makes `check` reproducible is that it never calls a model.
         message = client.messages.create(
             model=self.model,
             max_tokens=MAX_TOKENS,
-            temperature=0,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": build_prompt(profile, table)}],
         )
-        block = message.content[0]
-        raw = block.text if getattr(block, "type", "") == "text" else str(block)
-        return apply_advice(table, parse_response(raw))
+        return apply_advice(table, parse_response(response_text(message)))
 
 
 __all__ = [
@@ -234,6 +261,7 @@ __all__ = [
     "WITHDRAWABLE",
     "ClaudeDescriber",
     "build_prompt",
+    "response_text",
     "parse_response",
     "apply_advice",
 ]

@@ -194,14 +194,54 @@ def test_the_describer_writes_descriptions_into_the_contract(profile_fixture):
     assert columns["amount"].maximum is None  # withdrawn on advice
 
 
-def test_the_describer_sends_a_deterministic_request(profile_fixture):
+def test_the_describer_sends_no_sampling_parameters(profile_fixture):
+    """This used to assert `temperature == 0` and call it reproducibility.
+
+    It was never that: a temperature of zero does not guarantee identical
+    output. What it does guarantee now is a 400 — current models reject
+    sampling parameters — so the request must carry none of them. Reproducible
+    checking comes from `check` never calling a model, not from this request.
+    """
     client = FakeClient('{"columns": {}}')
     describer = ClaudeDescriber(client=client, api_key="not-used")
     generate_contract(profile_fixture("clean_orders.csv"), describer=describer)
 
     call = client.messages.calls[0]
-    assert call["temperature"] == 0, "descriptions must be reproducible"
+    rejected = [name for name in ("temperature", "top_p", "top_k") if name in call]
+    assert not rejected, f"current models reject: {rejected}"
     assert "data contract" in call["system"]
+
+
+def test_the_reply_is_read_past_a_thinking_block(profile_fixture):
+    """Thinking is on by default, so the text is not `content[0]`.
+
+    And because thinking text is withheld by default, reading the wrong block
+    yields an empty-looking one — a contract silently generated without
+    descriptions, which is exactly the failure that is hardest to notice.
+    """
+
+    class Thinking:
+        type = "thinking"
+        thinking = ""
+
+    class Text:
+        type = "text"
+        text = '{"columns": {"order_id": {"means": "One order."}}}'
+
+    class Message:
+        content = [Thinking(), Text()]
+
+    class Client:
+        class messages:  # noqa: N801
+            @staticmethod
+            def create(**_kwargs):
+                return Message()
+
+    describer = ClaudeDescriber(client=Client(), api_key="not-used")
+    contract = generate_contract(profile_fixture("clean_orders.csv"), describer=describer)
+
+    assert contract.tables["clean_orders"].columns["order_id"].means == "One order."
+    assert "descriptions unavailable" not in contract.generated_by
 
 
 def test_a_garbled_reply_leaves_a_valid_contract(profile_fixture):

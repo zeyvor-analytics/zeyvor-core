@@ -57,34 +57,43 @@ class CountingDescriber(ClaudeDescriber):
         self.input_tokens = 0
         self.output_tokens = 0
         self.seconds = 0.0
+        self.failure: Exception | None = None
 
     def __call__(self, profile, table):
-        client = self._ensure_client()
-        started = time.perf_counter()
         from zeyvor.contract.llm import (
             MAX_TOKENS,
             SYSTEM_PROMPT,
             apply_advice,
             build_prompt,
             parse_response,
+            response_text,
         )
 
-        message = client.messages.create(
-            model=self.model,
-            max_tokens=MAX_TOKENS,
-            temperature=0,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": build_prompt(profile, table)}],
-        )
-        self.seconds += time.perf_counter() - started
-        usage = getattr(message, "usage", None)
-        if usage:
-            self.input_tokens += getattr(usage, "input_tokens", 0)
-            self.output_tokens += getattr(usage, "output_tokens", 0)
+        try:
+            client = self._ensure_client()
+            started = time.perf_counter()
+            message = client.messages.create(
+                model=self.model,
+                max_tokens=MAX_TOKENS,
+                system=SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": build_prompt(profile, table)}],
+            )
+            self.seconds += time.perf_counter() - started
+            usage = getattr(message, "usage", None)
+            if usage:
+                self.input_tokens += getattr(usage, "input_tokens", 0)
+                self.output_tokens += getattr(usage, "output_tokens", 0)
 
-        block = message.content[0]
-        raw = block.text if getattr(block, "type", "") == "text" else str(block)
-        advice = parse_response(raw)
+            advice = parse_response(response_text(message))
+        except Exception as exc:
+            # `generate_contract` swallows this on purpose — an undocumented
+            # contract is still a working contract, and `init` should not fail
+            # because a network did. But this script exists to judge the
+            # writing, so here the failure is the finding, and it is kept so
+            # `main` can say so instead of printing sixty blank descriptions.
+            self.failure = exc
+            raise
+
         self.last_advice = advice
         return apply_advice(table, advice)
 
@@ -97,6 +106,7 @@ def main() -> int:
 
     total_in = total_out = 0
     total_seconds = 0.0
+    failures: list[tuple[str, Exception]] = []
 
     for filename, difficulty in CASES:
         path = os.path.join(FIXTURES, filename)
@@ -108,6 +118,14 @@ def main() -> int:
         describer = CountingDescriber()
         contract = generate_contract(profile, describer=describer)
         table = contract.tables[profile.name]
+
+        if describer.failure is not None:
+            failures.append((filename, describer.failure))
+            print(
+                f"\n  \033[31mNo description was written: "
+                f"{type(describer.failure).__name__}: {describer.failure}\033[0m\n"
+            )
+            continue
 
         for name, column in table.columns.items():
             means = column.means or "\033[31m(no description)\033[0m"
@@ -147,14 +165,28 @@ def main() -> int:
                 handle.write(dumps(contract))
             print(f"  wrote {out} as a worked example\n")
 
-    # Sonnet 4 list pricing at the time of writing: $3/Mtok in, $15/Mtok out.
-    cost = total_in / 1e6 * 3 + total_out / 1e6 * 15
+    # Opus 5 list pricing at the time of writing: $5/Mtok in, $25/Mtok out.
+    cost = total_in / 1e6 * 5 + total_out / 1e6 * 25
     print("=" * 78)
     print(
         f"{len(CASES)} tables · {total_in:,} in / {total_out:,} out tokens · "
         f"{total_seconds:.1f}s · about ${cost:.3f}"
     )
     print("`init` is a once-per-table cost. `check` never calls a model at all.")
+
+    if failures:
+        # Zero tokens and blank descriptions used to be the *only* evidence that
+        # nothing ran, and they look identical to a model that answered badly.
+        # Say which it was, and exit non-zero so a script can tell too.
+        print()
+        for filename, exc in failures:
+            print(f"\033[31m{filename}: {type(exc).__name__}: {exc}\033[0m", file=sys.stderr)
+        print(
+            f"\n{len(failures)} of {len(CASES)} tables got no model output at all. "
+            "Nothing above is a judgement of the writing.",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 

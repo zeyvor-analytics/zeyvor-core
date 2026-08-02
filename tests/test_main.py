@@ -8,10 +8,29 @@ and that the module actually runs.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 
 from helpers import fixture_path
+
+
+def _env() -> dict[str, str]:
+    """The current environment plus a PYTHONPATH pointing at `src`.
+
+    Deliberately inherited rather than replaced. This used to pass
+    `{"PYTHONPATH": ..., "PATH": "/usr/bin:/bin"}`, which wiped everything else
+    — and on Windows that removes `SystemRoot`, without which the interpreter
+    cannot seed its hash randomisation and dies before running a line:
+
+        Fatal Python error: _Py_HashRandomization_Init
+
+    The minimal PATH was never load-bearing either; it is a POSIX path list, so
+    it meant nothing on Windows. What these tests are actually checking is that
+    `-m zeyvor` resolves from a different working directory, and PYTHONPATH is
+    the only variable that has any bearing on that.
+    """
+    return {**os.environ, "PYTHONPATH": _src_dir()}
 
 
 def test_module_entry_is_the_cli():
@@ -29,7 +48,7 @@ def test_running_the_module_works(tmp_path):
         text=True,
         encoding="utf-8",
         cwd=tmp_path,
-        env={"PYTHONPATH": _src_dir(), "PATH": "/usr/bin:/bin"},
+        env=_env(),
     )
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
@@ -43,15 +62,13 @@ def test_module_help_lists_the_commands(tmp_path):
         text=True,
         encoding="utf-8",
         cwd=tmp_path,
-        env={"PYTHONPATH": _src_dir(), "PATH": "/usr/bin:/bin"},
+        env=_env(),
     )
     assert result.returncode == 0
     assert "zeyvor check" in result.stdout
 
 
 def _src_dir() -> str:
-    import os
-
     import zeyvor
 
     return os.path.dirname(os.path.dirname(os.path.abspath(zeyvor.__file__)))

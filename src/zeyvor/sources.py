@@ -216,14 +216,7 @@ def resolve_source(
             # behind every time someone mistyped a source.
             if not fragment:
                 raise ValueError("DuckDB sources need a table: duckdb:///file.db#table")
-            db_path = uri.split("://", 1)[1]
-            # `duckdb:///wh.db` means an empty host and the path `/wh.db`, so one
-            # leading slash always comes off. The Windows exception that used to
-            # live here was backwards: it left `/wh.db`, which DuckDB read as
-            # `//wh.db` and rejected. Stripping is right on both — a Windows
-            # absolute URI is `duckdb:///C:/data/wh.db`, and `C:/data/wh.db` is
-            # exactly what should be opened.
-            db_path = db_path[1:] if db_path.startswith("/") else db_path
+            db_path = _path_from_uri(uri)
             eng = DuckDBEngine(db_path or ":memory:", threads=threads, memory_limit=memory_limit)
             return ResolvedSource(
                 engine=eng,
@@ -264,11 +257,24 @@ def resolve_source(
     return ResolvedSource(engine=eng, relation=_file_relation(uri, source, csv_options))
 
 
+def _path_from_uri(uri: str) -> str:
+    """The filesystem path in a `scheme:///path` URI, on any platform.
+
+    Three slashes means an empty host and the path `/name`, so one leading slash
+    always comes off. This used to be written inline in two places, both with an
+    `os.name != "nt"` guard that kept the slash on Windows — DuckDB was then
+    handed `//name` and rejected it. Stripping is right everywhere: a Windows
+    absolute URI is `sqlite:///C:/data/app.db`, and `C:/data/app.db` is exactly
+    the path to open.
+    """
+    path = uri.split("://", 1)[1]
+    return path[1:] if path.startswith("/") else path
+
+
 def _dsn_for(kind: str, uri: str) -> str:
     """DuckDB's attach DSN formats differ slightly per extension."""
     if kind == "sqlite":
-        path = uri.split("://", 1)[1]
-        return path[1:] if path.startswith("/") and os.name != "nt" else path
+        return _path_from_uri(uri)
     if kind == "postgres":
         # The postgres extension accepts libpq URIs directly.
         return uri if uri.startswith("postgres") else f"postgresql://{uri}"

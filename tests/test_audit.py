@@ -172,23 +172,42 @@ def test_every_violation_type_has_a_default_severity():
 # platform-specific, which means local development will never surface it.
 
 
-def test_a_duckdb_uri_keeps_its_relative_path():
-    """`duckdb:///wh.db` must open `wh.db`, on every platform.
+def test_a_uri_path_loses_its_leading_slash_on_every_platform():
+    """`duckdb:///wh.db` must open `wh.db`, on Windows too.
 
-    The original had a `!= "nt"` guard that left the leading slash on Windows,
-    so DuckDB was handed `//wh.db` and refused it. Stripping is correct on both:
-    a Windows absolute URI is `duckdb:///C:/data/wh.db`, and `C:/data/wh.db` is
-    precisely the path to open.
+    Both the DuckDB and SQLite branches carried an `os.name != "nt"` guard that
+    left the slash on Windows, so the engine was handed `//wh.db` and refused
+    it. Fixing one and missing the other is why this test checks the behaviour
+    rather than the text of a particular line.
     """
-    import re
+    from zeyvor.sources import _path_from_uri
 
-    with open(os.path.join(ROOT, "src", "zeyvor", "sources.py"), encoding="utf-8") as handle:
-        source = handle.read()
-    stripping = re.search(r"db_path = db_path\[1:\] if db_path\.startswith\(\"/\"\)(.*)", source)
-    assert stripping, "the duckdb path-stripping line has moved"
-    assert "nt" not in stripping.group(1), (
-        "the leading slash must come off on every platform, Windows included"
-    )
+    assert _path_from_uri("duckdb:///wh.db") == "wh.db"
+    assert _path_from_uri("sqlite:///app.db") == "app.db"
+    # A POSIX absolute path is written with four slashes and keeps one.
+    assert _path_from_uri("duckdb:////var/data/wh.db") == "/var/data/wh.db"
+    # A Windows absolute path needs the slash gone or it becomes //C:/...
+    assert _path_from_uri("sqlite:///C:/data/app.db") == "C:/data/app.db"
+
+
+def test_no_platform_branch_decides_how_a_path_is_read():
+    """A path rule that differs per platform is how the Windows bug survived
+    review twice. There is no legitimate one left in the package."""
+    import ast
+    import pathlib
+
+    # Parsed, not grepped: the docstring that explains the old bug quotes the
+    # very expression being banned, and a text search cannot tell prose from code.
+    offenders = []
+    for path in sorted(pathlib.Path(ROOT, "src").rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Attribute):
+                continue
+            module = getattr(node.value, "id", None)
+            if (module, node.attr) in {("os", "name"), ("sys", "platform")}:
+                offenders.append(f"{path.relative_to(ROOT)}:{node.lineno}")
+    assert not offenders, "platform branch in: " + ", ".join(offenders)
 
 
 TEXT_IO = ("open", "read_text", "write_text")
@@ -235,3 +254,40 @@ def test_every_file_is_opened_with_an_explicit_encoding():
             offenders.append(f"{path.relative_to(ROOT)}:{node.lineno}")
 
     assert not offenders, "text IO without encoding=: " + ", ".join(offenders)
+
+
+def test_no_subprocess_replaces_the_whole_environment():
+    """`env={...}` wipes everything the OS put there.
+
+    On Windows that removes SystemRoot, and the interpreter then cannot seed its
+    hash randomisation — it dies with `_Py_HashRandomization_Init` before
+    executing a line. That is what the third Windows CI run failed on, and no
+    amount of adding variables to the literal would have been the fix: the
+    environment has to be inherited and overlaid.
+    """
+    import ast
+    import pathlib
+
+    offenders = []
+    for path in sorted(pathlib.Path(ROOT, "tests").rglob("*.py")) + sorted(
+        pathlib.Path(ROOT, "src").rglob("*.py")
+    ):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if getattr(node.func, "attr", None) not in {"run", "Popen", "call", "check_output"}:
+                continue
+            for keyword in node.keywords:
+                if keyword.arg != "env":
+                    continue
+                # A dict literal with no ** unpacking replaces rather than extends.
+                if isinstance(keyword.value, ast.Dict) and not any(
+                    key is None for key in keyword.value.keys
+                ):
+                    offenders.append(f"{path.relative_to(ROOT)}:{node.lineno}")
+
+    assert not offenders, (
+        "subprocess env= replaces the environment instead of extending it "
+        "({**os.environ, ...}): " + ", ".join(offenders)
+    )

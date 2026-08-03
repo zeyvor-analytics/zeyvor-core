@@ -21,7 +21,13 @@ name: release
 
 on:
   push:
-    tags: ["v*"]
+    # Full versions only. `v1` is the moving major tag the GitHub Action is
+    # consumed by (`uses: zeyvor-analytics/zeyvor-core@v1`), so it gets
+    # repointed at every release — and under `v*` that repoint fired this
+    # workflow, which then failed on the version check because "1" is not
+    # "0.1.0". The guard did its job, but a red run on a routine tag move
+    # teaches people to ignore red runs.
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
   workflow_dispatch:
     inputs:
       target:

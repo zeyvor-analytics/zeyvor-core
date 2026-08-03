@@ -15,9 +15,9 @@ Nothing breaks. No error, no alert. The column is still complete, still unique, 
 
 ## Status
 
-**Parts 1–4 of 8 are complete:** the profiler, the contract engine, the command line, and the CI integrations. Usable end to end, in a terminal or on every push.
+**v0.1 — feature-complete, not yet field-tested.** The profiler, the contract engine, the CLI, CI integrations, cross-table (foreign key) checks, the web presence, and the hosted dashboard are all built and covered by tests. What hasn't happened yet is real data from people other than the author: the thresholds that decide what counts as drift worth failing a build over were tuned on judgment, not on a range of unfamiliar datasets, and that's the one thing that can't be fixed by writing more code.
 
-Still to come: the web presence, the hosted dashboard, cross-table (foreign key) checks, and a full audit.
+If you run it and a finding looks wrong — too sensitive, not sensitive enough, or just mistaken — [tell us](mailto:zeyvor.analytics@gmail.com). That feedback is the actual gap right now.
 
 ## Install
 

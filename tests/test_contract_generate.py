@@ -33,9 +33,26 @@ def test_upper_bound_leaves_room_for_growth_but_not_for_a_unit_change():
     assert padded < 366.49 * 100, "a unit change must still be caught"
 
 
-def test_lower_bound_uses_zero_for_non_negative_data():
+def test_lower_bound_uses_zero_for_data_that_reaches_zero():
     """A negative price is a real signal, and zero is a bound anyone understands."""
-    assert _pad_lower(19.99, RangePolicy()) == 0
+    assert _pad_lower(19.99, RangePolicy(), maximum=500.0) == 0
+
+
+def test_lower_bound_keeps_its_distance_from_zero_when_the_data_does():
+    """Zero is only a bound if the column can plausibly get there.
+
+    Flooring at zero regardless threw the observed minimum away: every
+    non-negative column in two real files got `min: 0`, so a blood pressure of
+    zero — the reading that should stop a build outright — passed the check.
+    """
+    assert _pad_lower(29.0, RangePolicy(), maximum=77.0) == 10  # age
+    assert _pad_lower(94.0, RangePolicy(), maximum=200.0) == 40  # blood pressure
+
+
+def test_lower_bound_still_leaves_room_below_the_minimum():
+    floor = _pad_lower(94.0, RangePolicy(), maximum=200.0)
+    assert floor < 94.0, "ordinary variation below the sample must not trip it"
+    assert floor > 0, "and the bound must still assert something"
 
 
 def test_lower_bound_is_widened_when_negatives_are_normal():
@@ -317,3 +334,84 @@ def test_the_row_floor_is_configurable(profile_fixture):
         profile_fixture("clean_orders.csv"), policy=RangePolicy(row_headroom=1.0)
     )
     assert contract.tables["clean_orders"].min_rows == 100
+
+
+def test_the_upper_bound_honours_the_headroom_it_documents():
+    """Rounding up to one significant figure widened 2x well past 2x.
+
+    Cholesterol topping out at 564 doubled to 1128 and then rounded to 2000 —
+    3.5x the observed maximum, in a clause whose stated policy is 2x.
+    """
+    padded = _pad_upper(564, RangePolicy())
+    assert padded == 1200
+    assert padded <= 564 * 2.5
+
+
+def test_the_upper_bound_still_catches_a_unit_change():
+    assert _pad_upper(366.49, RangePolicy()) < 366.49 * 100
+
+
+# ── numbers that label rather than measure ────────────────────────────────────
+
+
+def _code_column(name: str, values: list[str], rows: int = 270):
+    """A small integer code, shaped like the clinical columns that motivated this."""
+    from zeyvor.profile.models import ColumnProfile, EnumMember, EnumProfile, NumericStats
+    from zeyvor.profile.types import finalise
+
+    numbers = [float(v) for v in values]
+    column = ColumnProfile(
+        name=name,
+        declared_type="BIGINT",
+        row_count=rows,
+        distinct_count=len(values),
+        type_probes={"int": rows, "float": rows},
+        numeric=NumericStats(minimum=min(numbers), maximum=max(numbers)),
+        enum=EnumProfile(
+            members=[EnumMember(v, rows // len(values)) for v in values],
+            complete=True,
+            cardinality=len(values),
+        ),
+    )
+    return finalise(column)
+
+
+def test_a_small_integer_code_gets_a_closed_set_not_a_range():
+    """`cp` is four chest-pain categories written as digits, not a quantity.
+
+    As a range it read `min: 0, max: 6`, which admits 4 and 5 without comment.
+    """
+    contract = generate_column_contract(_code_column("cp", ["0", "1", "2", "3"]))
+
+    assert contract.categories == ["0", "1", "2", "3"]
+    assert contract.categories_closed is True
+    assert contract.minimum is None, "a closed set already excludes everything a range would"
+    assert contract.maximum is None
+
+
+def test_a_code_that_never_reaches_zero_does_not_permit_zero():
+    """`thal` is 1, 2 or 3. Zero is what that encoding writes for missing."""
+    contract = generate_column_contract(_code_column("thal", ["1", "2", "3"]))
+    assert contract.categories == ["1", "2", "3"]
+    assert "0" not in (contract.categories or [])
+
+
+def test_a_count_is_left_open_however_few_values_it_holds():
+    """item_count sitting at 0-3 today is a count that reaches 4, not a vocabulary."""
+    contract = generate_column_contract(_code_column("item_count", ["0", "1", "2", "3"]))
+
+    assert contract.categories_closed is not True
+    assert contract.maximum is not None, "a count keeps its range"
+
+
+def test_a_wide_integer_column_is_never_a_vocabulary():
+    """41 distinct ages in 270 rows is a measurement, and the 42nd is coming."""
+    ages = [str(n) for n in range(29, 70)]
+    contract = generate_column_contract(_code_column("age", ages))
+    assert contract.categories_closed is not True
+
+
+def test_closing_numeric_codes_can_be_switched_off():
+    policy = RangePolicy(max_numeric_categories=0)
+    contract = generate_column_contract(_code_column("cp", ["0", "1", "2", "3"]), policy=policy)
+    assert contract.categories_closed is not True

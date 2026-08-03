@@ -97,6 +97,12 @@ class RangePolicy:
     """
 
     numeric_headroom: float = 2.0
+    zero_floor_ratio: float = 0.1
+    """How near zero an observed minimum has to sit before zero is used as the
+    floor. Below a tenth of the maximum the column plainly operates near zero and
+    reaching it is ordinary; well above, zero is outside the data's range and
+    naming it as the bound asserts nothing."""
+
     floor_non_negative_at_zero: bool = True
     """Where nothing negative was observed, use zero as the lower bound rather
     than the observed minimum. A negative value in a quantity or price column is
@@ -116,6 +122,13 @@ class RangePolicy:
     max_shapes_for_format_clause: int = 3
     min_shape_coverage: float = 0.99
     max_categories: int = 50
+
+    max_numeric_categories: int = 12
+    """Tighter than `max_categories`, because a number is only a label when there
+    are very few of them. Real code sets are small — a Likert scale, a status
+    enum, the months — while the distinct values of a genuine count keep
+    arriving. Set to 0 to switch the behaviour off and treat every number as a
+    measurement."""
 
     max_distinct_rate_for_categories: float = 0.15
     """A vocabulary is a small set of values used many times. Above this share of
@@ -147,15 +160,40 @@ def _round_down_1sf(value: float) -> float:
     return math.floor(value / step) * step
 
 
+def _round_up_2sf(value: float) -> float:
+    """Round up to two significant figures: 1128 → 1200, 154 → 160."""
+    if value == 0:
+        return 0.0
+    magnitude = math.floor(math.log10(abs(value))) - 1
+    step = 10**magnitude
+    return math.ceil(round(value / step, 6)) * step
+
+
 def _pad_upper(value: float, policy: RangePolicy) -> float:
-    padded = _round_up_1sf(value * policy.numeric_headroom)
+    # Two significant figures, not one. Rounding the doubled value up to a single
+    # figure quietly widened the headroom the policy documents: a cholesterol
+    # maximum of 564 doubled to 1128 and then rounded to 2000, which is 3.5x the
+    # observed value, not 2x. The bound stays a readable round number either way.
+    padded = _round_up_2sf(value * policy.numeric_headroom)
     return int(padded) if float(padded).is_integer() else padded
 
 
-def _pad_lower(value: float, policy: RangePolicy) -> float:
-    if value >= 0 and policy.floor_non_negative_at_zero:
+def _pad_lower(value: float, policy: RangePolicy, maximum: float | None = None) -> float:
+    if value < 0:
+        padded = _round_down_1sf(value * policy.numeric_headroom)
+        return int(padded) if float(padded).is_integer() else padded
+    if not policy.floor_non_negative_at_zero:
+        padded = _round_down_1sf(value / policy.numeric_headroom)
+        return int(padded) if float(padded).is_integer() else padded
+    # Zero is the right floor when the column plausibly reaches it, and only
+    # then. A discount that bottoms out at 0 should keep 0; an age that starts
+    # at 29 or a blood pressure that starts at 94 should not, because flooring
+    # those at zero throws the observed minimum away and leaves a bound no
+    # corruption can trip — a 0 blood pressure passing the check is precisely
+    # the reading that should stop the build.
+    if maximum is None or value <= abs(maximum) * policy.zero_floor_ratio:
         return 0
-    padded = _round_down_1sf(value * policy.numeric_headroom)
+    padded = _round_down_1sf(value / policy.numeric_headroom)
     return int(padded) if float(padded).is_integer() else padded
 
 
@@ -185,6 +223,71 @@ def _looks_like_key_column(name: str) -> bool:
     return any(lowered.endswith("_" + suffix) for suffix in KEY_NAME_SUFFIXES)
 
 
+# Words that describe a magnitude. A column named for one is open at the top
+# however few values it holds today: `error_count` sitting at 0-2 all week is a
+# count that reaches 3 eventually, not a three-word vocabulary.
+QUANTITY_NAME_HINTS = (
+    "count",
+    "qty",
+    "quantity",
+    "total",
+    "sum",
+    "amount",
+    "size",
+    "bytes",
+    "length",
+    "duration",
+    "age",
+    "score",
+    "price",
+    "cost",
+    "rank",
+    "index",
+    "offset",
+    # Singular stems, which match their own plurals as substrings. `retries` is
+    # the exception that needs spelling out.
+    "view",
+    "click",
+    "error",
+    "attempt",
+    "failure",
+    "retry",
+    "retries",
+)
+
+
+def _looks_like_quantity_column(name: str) -> bool:
+    lowered = name.lower()
+    return any(hint in lowered for hint in QUANTITY_NAME_HINTS)
+
+
+def _is_small_integer_code(column, policy: RangePolicy) -> bool:
+    """Small integers that label rather than measure.
+
+    Half the columns in a clinical or survey extract are codes: chest pain type
+    0-3, an ECG result 0-2, a Likert answer 1-5. They are categories that happen
+    to be written as digits, and treating them as numbers produced the worst
+    clause this tool generates — `min: 0, max: 6` on a four-value code, which
+    admits 4 and 5 without comment and can never fail on anything a reviewer
+    would care about.
+
+    Distinguishing a code from a count cannot be done from the values alone;
+    `cp` holding 0-3 and `item_count` holding 0-3 are identical in the data. So
+    the guards are cardinality far below what a count reaches, deep repetition,
+    integers only, and a name that does not describe a magnitude.
+
+    Where it still guesses wrong it guesses tight, which is the recoverable
+    direction: a closed set is one visible line in a file the workflow already
+    asks a human to read and correct, while a range nothing can violate is
+    invisible and silently protects nothing.
+    """
+    if column.inferred_type is not InferredType.INTEGER:
+        return False
+    if column.enum is None or column.enum.cardinality > policy.max_numeric_categories:
+        return False
+    return not _looks_like_quantity_column(column.name)
+
+
 def _should_close_categories(column, policy: RangePolicy) -> bool:
     """Is this column's value set a vocabulary, or just the values it happens to hold?
 
@@ -206,8 +309,11 @@ def _should_close_categories(column, policy: RangePolicy) -> bool:
     if column.is_unique:
         return False
     # The distinct values of a count or a price are not a vocabulary: item_count
-    # holding 0-6 today will hold 7 tomorrow.
-    if column.inferred_type in NUMERIC_TYPES or column.inferred_type in TEMPORAL_TYPES:
+    # holding 0-6 today will hold 7 tomorrow. Small integer codes are the
+    # exception, and a common one — see _is_small_integer_code.
+    if column.inferred_type in TEMPORAL_TYPES:
+        return False
+    if column.inferred_type in NUMERIC_TYPES and not _is_small_integer_code(column, policy):
         return False
     if _looks_like_pii_column(column.name):
         return False
@@ -328,12 +434,16 @@ def generate_column_contract(
     # Identifiers get no range clause. An auto-incrementing id grows past every
     # ceiling eventually, so `max` on a key is a scheduled false alarm; the
     # useful assertion for a key is uniqueness, which is handled above.
+    # A closed set is the stronger statement and already excludes everything a
+    # range would. Emitting both adds a bound that can only ever be redundant.
     is_key = _looks_like_key_column(column.name)
-    if is_key:
+    if is_key or contract.categories_closed:
         pass
     elif column.inferred_type in NUMERIC_TYPES and column.numeric:
         if column.numeric.minimum is not None:
-            contract.minimum = _pad_lower(column.numeric.minimum, policy)
+            contract.minimum = _pad_lower(
+                column.numeric.minimum, policy, maximum=column.numeric.maximum
+            )
         if column.numeric.maximum is not None:
             contract.maximum = _pad_upper(column.numeric.maximum, policy)
     elif column.inferred_type in TEMPORAL_TYPES and column.temporal:

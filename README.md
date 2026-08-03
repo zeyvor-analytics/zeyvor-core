@@ -135,12 +135,16 @@ raise SystemExit(report.exit_code)
 
 ## Contracts
 
-The generated file is meant to be read and edited in a pull request:
+The generated file is meant to be read and edited in a pull request, so every
+column carries a plain-English line saying what it currently promises, and the
+file opens with a guide to reading the clauses:
 
 ```yaml
 tables:
   orders:
+    min_rows: 50000
     columns:
+      # Dates, never empty, between 2019-01-01 and today, shaped like '####-##-##'.
       signup_date:
         means: Calendar date the customer signed up.
         type: date
@@ -148,10 +152,12 @@ tables:
         nullable: false
         min: '2019-01-01'
         max: today
+      # Text, and only these 4 values.
       status:
         type: text
         categories: [delivered, pending, refunded, shipped]
         categories_closed: true
+      # Text.
       notes:
         type: text
         no_pii: true

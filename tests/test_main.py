@@ -72,3 +72,23 @@ def _src_dir() -> str:
     import zeyvor
 
     return os.path.dirname(os.path.dirname(os.path.abspath(zeyvor.__file__)))
+
+
+def test_the_two_version_strings_agree():
+    """`generated_by` is stamped into every contract from __version__, while PyPI
+    publishes what pyproject says. If they drift, a contract records a version
+    that was never released and the mismatch is invisible until someone tries to
+    reproduce a result.
+    """
+    import pathlib
+    import re
+
+    import zeyvor
+
+    pyproject = pathlib.Path(__file__).resolve().parent.parent / "pyproject.toml"
+    declared = re.search(
+        r'^version = "([^"]+)"', pyproject.read_text(encoding="utf-8"), re.M
+    )
+
+    assert declared, "no version in pyproject.toml"
+    assert declared.group(1) == zeyvor.__version__

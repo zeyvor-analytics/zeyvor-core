@@ -431,3 +431,94 @@ def test_awkward_table_names_become_safe_filenames(tmp_path):
     dump(contract, str(tmp_path / "out"))
     written = [p.name for p in (tmp_path / "out").iterdir()]
     assert written == ["prod_orders_v2.yml"]
+
+
+# ── readable by someone who did not write it ──────────────────────────────────
+
+
+def _one_column(column: ColumnContract) -> Contract:
+    return Contract(tables={"t": TableContract(name="t", columns={column.name: column})})
+
+
+def _sentence_for(column: ColumnContract) -> str:
+    line = [ln for ln in dumps(_one_column(column)).split("\n") if ln.strip().startswith("# ")]
+    return line[-1].strip()[2:]
+
+
+def test_each_column_is_introduced_in_plain_english():
+    """`nullable: false` is precise and unreadable to whoever has to approve it.
+
+    A contract nobody outside the data team can read gets approved without being
+    read, which is the failure the review workflow exists to prevent.
+    """
+    column = ColumnContract(name="age", type="integer", nullable=False, minimum=10, maximum=160)
+    assert _sentence_for(column) == "Whole numbers, never empty, between 10 and 160."
+
+
+def test_a_closed_set_says_it_is_closed():
+    column = ColumnContract(
+        name="coffee_name",
+        type="text",
+        nullable=False,
+        categories=["Latte", "Cocoa"],
+        categories_closed=True,
+    )
+    assert _sentence_for(column) == "Text, never empty, and only these 2 values."
+
+
+def test_an_allowance_for_blanks_is_stated_as_a_percentage():
+    column = ColumnContract(name="card", type="text", nullable=True, max_null_rate=0.05)
+    assert "empty in at most 5% of rows" in _sentence_for(column)
+
+
+def test_a_retired_column_says_so():
+    assert _sentence_for(ColumnContract(name="legacy", type="text", ignore=True)) == "Not checked."
+
+
+def test_the_annotations_survive_a_round_trip():
+    """The file is still data. Comments must not cost it that."""
+    contract = Contract(
+        tables={
+            "t": TableContract(
+                name="t",
+                min_rows=2000,
+                columns={
+                    "id": ColumnContract(name="id", type="integer", unique=True, nullable=False),
+                    "status": ColumnContract(
+                        name="status", type="text", categories=["a", "b"], categories_closed=True
+                    ),
+                },
+            )
+        }
+    )
+    reloaded = loads(dumps(contract))
+
+    assert reloaded.tables["t"].min_rows == 2000
+    assert reloaded.tables["t"].columns["id"].unique is True
+    assert reloaded.tables["t"].columns["status"].categories == ["a", "b"]
+
+
+def test_annotations_line_up_with_awkward_column_names():
+    """A real survey export had `What do you think...? (Rank) [Gold]` as a column
+    name — brackets, punctuation, a question mark. Matching by position rather
+    than by name is what holds up against files like that.
+    """
+    awkward = "What do you think are the best options? (Rank in order) [Gold]"
+    contract = Contract(
+        tables={
+            "t": TableContract(
+                name="t",
+                columns={
+                    awkward: ColumnContract(name=awkward, type="integer", minimum=1, maximum=7),
+                    "gender": ColumnContract(name="gender", type="text", nullable=False),
+                },
+            )
+        }
+    )
+    lines = dumps(contract).split("\n")
+    for index, line in enumerate(lines):
+        if line.strip().startswith("gender:"):
+            assert lines[index - 1].strip() == "# Text, never empty."
+            break
+    else:
+        raise AssertionError("gender column not found in output")

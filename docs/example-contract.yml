@@ -13,7 +13,7 @@ tables:
   clean_orders:
     source: /Users/mac/Documents/Zeyvor/zeyvor-core/tests/fixtures/clean_orders.csv
     profile_fingerprint: sha256:b37c6fb8e91a3fb9
-    min_rows: 1
+    min_rows: 50
     columns:
       order_id:
         means: Unique identifier assigned to each order, used as the primary key for joining order records.

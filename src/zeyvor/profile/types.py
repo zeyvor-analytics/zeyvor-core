@@ -22,6 +22,15 @@ PROBE_BOOL = "bool"
 PROBE_DATE = "date"
 PROBE_TIMESTAMP = "timestamp"
 
+# Type families that describe the same column rather than a disagreement. Used
+# both for the observed mixture within a column and for declared-vs-inferred, so
+# the two cannot drift apart. Note these are family names, as carried by
+# `type_mixture` and `declared_family`, not the probe keys above.
+COMPATIBLE_TYPE_FAMILIES = (
+    {"integer", "float"},
+    {"date", "timestamp"},
+)
+
 TEXT_TYPE_TOKENS = ("char", "text", "string", "varchar", "clob", "object", "json")
 INT_TYPE_TOKENS = ("int", "serial", "number", "numeric", "decimal", "bigint")
 FLOAT_TYPE_TOKENS = ("float", "double", "real", "numeric", "decimal")
@@ -243,7 +252,14 @@ def derive_observations(
     mixture = column.type_mixture
     if mixture:
         ranked = sorted(mixture.items(), key=lambda kv: kv[1], reverse=True)
-        if len(ranked) >= 2 and ranked[1][1] >= thresholds.minority_type:
+        # int alongside float is not a mixture worth reporting: it is what every
+        # float column looks like the moment one value lands on a whole number.
+        # A price column where 4 in 10 rows end in .00 is ordinary, and at the
+        # 0.001 minority threshold a single such value was enough to flag the
+        # column. The declared-vs-inferred check below already treats this pair
+        # as compatible; the two now agree.
+        compatible = len(ranked) >= 2 and {ranked[0][0], ranked[1][0]} in COMPATIBLE_TYPE_FAMILIES
+        if len(ranked) >= 2 and ranked[1][1] >= thresholds.minority_type and not compatible:
             add(Observation.MIXED_TYPES.value)
     if column.inferred_type is InferredType.MIXED and Observation.MIXED_TYPES.value not in out:
         add(Observation.MIXED_TYPES.value)
@@ -263,8 +279,16 @@ def derive_observations(
     # exported files, and "mixed types" badly under-describes it: the fix is to
     # normalise a vocabulary, not to change a type.
     bool_share = _share(column.type_probes.get(PROBE_BOOL, 0), column.valued_count)
+    # An all-numeric column is a code, not a vocabulary. `0` and `1` both parse
+    # as boolean, so any small integer encoding where most rows happen to be 0 or
+    # 1 cleared the share test on arithmetic alone — a three-valued ordinal like
+    # slope={0,1,2} at 93% zeros-and-ones was reported as a boolean spelled
+    # inconsistently. The failure this observation exists to describe needs more
+    # than one *spelling*, which means values that are not all integers.
+    int_share = _share(column.type_probes.get(PROBE_INT, 0), column.valued_count)
     if (
         bool_share >= thresholds.pattern_dominant
+        and int_share < thresholds.pattern_dominant
         and column.distinct_count > 2
         and column.inferred_type is not InferredType.BOOLEAN
     ):
@@ -273,13 +297,7 @@ def derive_observations(
         declared not in ("unknown", "other", "text")
         and inferred != "text"
         and declared != inferred
-        and (declared, inferred)
-        not in {
-            ("integer", "float"),
-            ("float", "integer"),
-            ("date", "timestamp"),
-            ("timestamp", "date"),
-        }
+        and {declared, inferred} not in COMPATIBLE_TYPE_FAMILIES
     ):
         add(Observation.DECLARED_TYPE_CONFLICT.value)
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 
 from zeyvor.contract import RangePolicy, generate_column_contract, generate_contract
-from zeyvor.contract.generate import _pad_lower, _pad_upper, _round_up_1sf
+from zeyvor.contract.generate import _floor_rows, _pad_lower, _pad_upper, _round_up_1sf
 
 # ── range padding ─────────────────────────────────────────────────────────────
 
@@ -284,3 +284,36 @@ def test_generation_needs_no_network_or_key(profile_fixture):
     """The default path must never require credentials."""
     contract = generate_contract(profile_fixture("clean_orders.csv"))
     assert contract.tables["clean_orders"].columns
+
+
+# ── volume ────────────────────────────────────────────────────────────────────
+
+
+def test_the_row_floor_is_derived_from_what_was_measured():
+    """`min_rows: 1` is not an assertion.
+
+    It was a constant, so a contract generated from four thousand rows passed on
+    a file that arrived with one — the ordinary shape of a failed upstream job,
+    and exactly the silent break this tool exists to catch.
+    """
+    assert _floor_rows(4340, RangePolicy()) == 2000
+    assert _floor_rows(270, RangePolicy()) == 100
+
+
+def test_the_row_floor_leaves_room_to_shrink():
+    policy = RangePolicy()
+    assert _floor_rows(1000, policy) < 1000, "ordinary variation must not trip it"
+    assert _floor_rows(1000, policy) > 1000 / 100, "a collapse must still be caught"
+
+
+def test_a_tiny_table_still_gets_a_floor_of_at_least_one():
+    """Rounding a handful of rows downward must not produce `min_rows: 0`."""
+    assert _floor_rows(1, RangePolicy()) == 1
+    assert _floor_rows(3, RangePolicy()) == 1
+
+
+def test_the_row_floor_is_configurable(profile_fixture):
+    contract = generate_contract(
+        profile_fixture("clean_orders.csv"), policy=RangePolicy(row_headroom=1.0)
+    )
+    assert contract.tables["clean_orders"].min_rows == 100

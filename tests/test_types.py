@@ -268,3 +268,42 @@ def test_a_clean_boolean_is_not_flagged_for_encoding():
     col = make_column(distinct=2, probes={"bool": 100})
     assert col.inferred_type is InferredType.BOOLEAN
     assert not col.has(Observation.MIXED_BOOLEAN_ENCODING)
+
+
+# ── mixtures that are not mixtures ─────────────────────────────────────────────
+
+
+def test_a_float_column_holding_whole_numbers_is_not_mixed():
+    """Four in ten values landing on a whole number is what floats look like.
+
+    Measured on a real clinical column (`oldpeak`, 111 of 270 rows integral).
+    At the 0.001 minority threshold a single such value was enough to report the
+    column as mixed, which made the observation noise on any price or score.
+    """
+    col = make_column(rows=270, distinct=39, declared="DOUBLE", probes={"int": 111, "float": 270})
+    assert col.inferred_type is InferredType.FLOAT
+    assert Observation.MIXED_TYPES.value not in col.observations
+
+
+def test_genuinely_mixed_types_are_still_reported():
+    col = make_column(rows=100, distinct=80, probes={"int": 60, "date": 40})
+    assert Observation.MIXED_TYPES.value in col.observations
+
+
+def test_a_numeric_code_column_is_not_a_boolean_spelled_inconsistently():
+    """`slope` in the Statlog heart data: values 0, 1 and 2, of which 93% are 0/1.
+
+    Both `0` and `1` parse as boolean, so a share test alone cleared on
+    arithmetic — a three-valued ordinal was reported as inconsistent boolean
+    encoding. The failure this observation names needs more than one spelling.
+    """
+    col = make_column(
+        rows=270, distinct=3, declared="BIGINT", probes={"int": 270, "float": 270, "bool": 252}
+    )
+    assert Observation.MIXED_BOOLEAN_ENCODING.value not in col.observations
+
+
+def test_a_flag_spelled_several_ways_is_still_reported():
+    """true/TRUE/yes/1/t — one meaning, five spellings, and only some are ints."""
+    col = make_column(rows=100, distinct=5, probes={"bool": 100, "int": 20})
+    assert Observation.MIXED_BOOLEAN_ENCODING.value in col.observations

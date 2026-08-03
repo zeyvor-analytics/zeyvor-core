@@ -102,6 +102,16 @@ class RangePolicy:
     than the observed minimum. A negative value in a quantity or price column is
     a genuine signal, and zero is a bound a reviewer immediately understands."""
 
+    row_headroom: float = 2.0
+    """How far a table is allowed to shrink before `min_rows` fails.
+
+    The same reasoning as `numeric_headroom`, applied to volume. A table that
+    halves has usually lost a partition, a join key, or a day of ingestion;
+    ordinary week-to-week variation is nowhere near that. Deriving the floor
+    from the observed count is what makes the clause an assertion at all — a
+    fixed `min_rows: 1` passes on a file that arrived with one row, which is
+    the most common shape of silent upstream failure."""
+
     null_rate_headroom: float = 0.02
     max_shapes_for_format_clause: int = 3
     min_shape_coverage: float = 0.99
@@ -147,6 +157,16 @@ def _pad_lower(value: float, policy: RangePolicy) -> float:
         return 0
     padded = _round_down_1sf(value * policy.numeric_headroom)
     return int(padded) if float(padded).is_integer() else padded
+
+
+def _floor_rows(row_count: int, policy: RangePolicy) -> int:
+    """The row floor to promise, given what was observed.
+
+    Rounded down to one significant figure like every other generated bound, so
+    the number reads as the deliberate approximation it is: 4,340 rows becomes
+    2,000, not 2,170.
+    """
+    return max(1, int(_round_down_1sf(row_count / policy.row_headroom)))
 
 
 def _looks_like_pii_column(name: str) -> bool:
@@ -345,7 +365,7 @@ def generate_table_contract(
         name=profile.name,
         source=profile.source_uri,
         profile_fingerprint=profile.fingerprint(),
-        min_rows=1 if profile.row_count > 0 else None,
+        min_rows=_floor_rows(profile.row_count, policy) if profile.row_count > 0 else None,
         allow_new_columns=True,
     )
     for column in profile.columns:

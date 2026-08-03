@@ -53,7 +53,7 @@ tables:
   orders:
     source: orders.csv
     profile_fingerprint: sha256:14e1ad482a98f6f4   # what this was born from
-    min_rows: 1
+    min_rows: 5000            # half what was profiled; a collapse is a failure
     allow_new_columns: true   # a new column is news, not a failure
     allow_missing_columns: false
 

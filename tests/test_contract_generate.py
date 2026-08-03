@@ -415,3 +415,86 @@ def test_closing_numeric_codes_can_be_switched_off():
     policy = RangePolicy(max_numeric_categories=0)
     contract = generate_column_contract(_code_column("cp", ["0", "1", "2", "3"]), policy=policy)
     assert contract.categories_closed is not True
+
+
+# ── has the sample seen the whole vocabulary? ─────────────────────────────────
+
+
+def _enum_column(name: str, counts: dict[str, int], declared: str = "VARCHAR"):
+    from zeyvor.profile.models import ColumnProfile, EnumMember, EnumProfile
+    from zeyvor.profile.types import finalise
+
+    rows = sum(counts.values())
+    return finalise(
+        ColumnProfile(
+            name=name,
+            declared_type=declared,
+            row_count=rows,
+            distinct_count=len(counts),
+            type_probes={},
+            enum=EnumProfile(
+                members=[EnumMember(v, c) for v, c in counts.items()],
+                complete=True,
+                cardinality=len(counts),
+            ),
+        )
+    )
+
+
+def test_a_set_with_values_seen_once_is_left_open():
+    """Forty survey responses closed a 1-7 preference scale at the six ranks
+    that happened to appear, so the next respondent using the seventh broke a
+    build over data that was never wrong. A singleton is the tell.
+    """
+    counts = {"1": 12, "2": 10, "3": 8, "4": 5, "5": 4, "7": 1}
+    assert generate_column_contract(_enum_column("mutual_funds", counts)).categories_closed is not True
+
+
+def test_a_thoroughly_sampled_set_is_still_closed():
+    counts = {"delivered": 25, "pending": 25, "shipped": 25, "refunded": 25}
+    assert generate_column_contract(_enum_column("status", counts)).categories_closed is True
+
+
+def test_one_rare_value_in_a_large_sample_does_not_block_closing():
+    """The estimate has to scale with the sample: one singleton in forty rows is
+    2.5% of the vocabulary still missing, one in ten thousand is 0.01%."""
+    counts = {"a": 4000, "b": 3000, "c": 2999, "d": 1}
+    assert generate_column_contract(_enum_column("channel", counts)).categories_closed is True
+
+
+# ── whose name is it? ─────────────────────────────────────────────────────────
+
+
+def test_a_product_name_is_a_label_not_a_person():
+    """`coffee_name` held eight drinks across 3,636 rows. Matching the bare word
+    `name` withheld `no_pii` from a menu and left the set open."""
+    counts = {"Latte": 900, "Espresso": 800, "Cortado": 700, "Cocoa": 636, "Americano": 600}
+    contract = generate_column_contract(_enum_column("coffee_name", counts))
+
+    assert contract.categories_closed is True
+    assert contract.no_pii is True
+
+
+def test_a_person_name_is_still_treated_as_personal():
+    from zeyvor.contract.generate import _looks_like_pii_column
+
+    for column in ("name", "full_name", "first_name", "surname", "customer_name", "username"):
+        assert _looks_like_pii_column(column), column
+    for column in ("coffee_name", "product_name", "file_name", "brand_name"):
+        assert not _looks_like_pii_column(column), column
+
+
+# ── whole numbers get whole bounds ────────────────────────────────────────────
+
+
+def test_an_integer_column_never_gets_a_fractional_bound():
+    """Padding a rank of 1 downward produced `min: 0.5` on a column typed
+    `integer`, which reads as a contradiction to anyone reviewing the file."""
+    # A 1-7 preference scale, named so the quantity guard leaves it as a range
+    # rather than closing the set — which is exactly how the survey columns that
+    # produced `min: 0.5` reached the range branch.
+    contract = generate_column_contract(_code_column("preference_rank", [str(n) for n in range(1, 8)]))
+
+    assert contract.maximum is not None, "precondition: this column takes the range branch"
+    assert contract.minimum == int(contract.minimum), f"got {contract.minimum!r}"
+    assert contract.maximum == int(contract.maximum), f"got {contract.maximum!r}"

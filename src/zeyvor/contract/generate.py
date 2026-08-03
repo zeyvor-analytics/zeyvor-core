@@ -60,7 +60,6 @@ PII_NAME_HINTS = (
     "phone",
     "mobile",
     "tel",
-    "name",
     "address",
     "street",
     "city",
@@ -78,6 +77,52 @@ PII_NAME_HINTS = (
     "birth",
     "ip",
 )
+
+# `name` on its own was too broad a hint. Most columns ending in it name a thing
+# rather than a person — coffee_name, product_name, file_name — and treating
+# them as personal data withheld `no_pii` from a product label and, worse, left
+# an eight-value menu open because names are not a closed vocabulary. Whose name
+# it is decides that, so the qualifier is what gets matched.
+PERSON_NAME_QUALIFIERS = (
+    "full",
+    "first",
+    "last",
+    "middle",
+    "given",
+    "sur",
+    "maiden",
+    "user",
+    "customer",
+    "client",
+    "employee",
+    "staff",
+    "contact",
+    "person",
+    "patient",
+    "student",
+    "member",
+    "author",
+    "owner",
+    "sender",
+    "recipient",
+    "applicant",
+    "guest",
+    "holder",
+    "nick",
+    "screen",
+    "display",
+    "login",
+)
+
+
+def _looks_like_person_name(lowered: str) -> bool:
+    stem = lowered.rstrip("s")
+    if stem == "name":
+        return True
+    if not stem.endswith("name"):
+        return False
+    qualifier = stem[: -len("name")].strip("_- ")
+    return qualifier in PERSON_NAME_QUALIFIERS
 
 
 @dataclass(frozen=True)
@@ -122,6 +167,13 @@ class RangePolicy:
     max_shapes_for_format_clause: int = 3
     min_shape_coverage: float = 0.99
     max_categories: int = 50
+
+    max_unseen_category_mass: float = 0.01
+    """How much of the vocabulary may still be unobserved before the set is left
+    open, estimated by the share of values seen exactly once. The estimate scales
+    with the sample the way confidence should: one singleton in forty rows is 2.5%
+    still missing and far too shaky to close, while one in ten thousand is 0.01%
+    and no reason to hold back."""
 
     max_numeric_categories: int = 12
     """Tighter than `max_categories`, because a number is only a label when there
@@ -209,6 +261,8 @@ def _floor_rows(row_count: int, policy: RangePolicy) -> int:
 
 def _looks_like_pii_column(name: str) -> bool:
     lowered = name.lower()
+    if _looks_like_person_name(lowered):
+        return True
     return any(hint in lowered for hint in PII_NAME_HINTS)
 
 
@@ -307,6 +361,17 @@ def _should_close_categories(column, policy: RangePolicy) -> bool:
     if not (1 < enum.cardinality <= policy.max_categories):
         return False
     if column.is_unique:
+        return False
+    # Has the sample actually exhausted the vocabulary, or just run out of rows?
+    # Values seen exactly once are the evidence: where singletons exist, more
+    # unseen values almost certainly do too, and their share of the sample
+    # estimates how much probability mass is still missing. Forty survey
+    # responses closed a 1-7 preference scale at the six ranks that happened to
+    # appear, so the next respondent using the seventh broke a build over data
+    # that was never wrong.
+    observed = sum(member.count for member in enum.members)
+    singletons = sum(1 for member in enum.members if member.count == 1)
+    if observed and singletons / observed > policy.max_unseen_category_mass:
         return False
     # The distinct values of a count or a price are not a vocabulary: item_count
     # holding 0-6 today will hold 7 tomorrow. Small integer codes are the
@@ -446,6 +511,15 @@ def generate_column_contract(
             )
         if column.numeric.maximum is not None:
             contract.maximum = _pad_upper(column.numeric.maximum, policy)
+        # A bound on a whole-number column has to be a whole number. Padding a
+        # rank of 1 downward produced `min: 0.5` on a column typed `integer`,
+        # which reads as a contradiction to anyone reviewing the file. Widening
+        # in both directions keeps every value the padding meant to admit.
+        if column.inferred_type is InferredType.INTEGER:
+            if contract.minimum is not None:
+                contract.minimum = math.floor(contract.minimum)
+            if contract.maximum is not None:
+                contract.maximum = math.ceil(contract.maximum)
     elif column.inferred_type in TEMPORAL_TYPES and column.temporal:
         contract.minimum = _year_start(column.temporal.minimum)
         # Historic data gets a moving upper bound, which is both more useful and

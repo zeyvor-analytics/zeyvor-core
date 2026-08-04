@@ -90,7 +90,6 @@ def test_database_sources_require_a_table():
     for uri in (
         "postgres://user:pw@localhost/db",
         "duckdb:///warehouse.db",
-        "snowflake://ACCOUNT",
         "bigquery://project",
     ):
         with pytest.raises(ValueError) as excinfo:

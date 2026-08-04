@@ -105,8 +105,8 @@ def test_something_that_is_not_a_manifest_says_so(tmp_path):
 
 
 def test_source_uris_carry_the_connection_and_the_table(manifest):
-    pairs = dict(sources_for(manifest, "snowflake://ACME"))
-    assert pairs["orders"] == "snowflake://ACME#warehouse.analytics.orders"
+    pairs = dict(sources_for(manifest, "bigquery://acme"))
+    assert pairs["orders"] == "bigquery://acme#warehouse.analytics.orders"
 
 
 def test_local_backends_get_a_two_part_name(manifest):

@@ -12,7 +12,7 @@ import pytest
 
 from zeyvor import DuckDBEngine, EngineError
 from zeyvor.engines.base import Relation
-from zeyvor.engines.warehouse import BigQueryEngine, DBAPIEngine, SnowflakeEngine, _type_name
+from zeyvor.engines.warehouse import BigQueryEngine, DBAPIEngine, _type_name
 
 # ── query accounting ──────────────────────────────────────────────────────────
 
@@ -99,21 +99,6 @@ def test_unopenable_database_fails_with_context():
 # ── warehouse adapters ────────────────────────────────────────────────────────
 
 
-def test_missing_snowflake_driver_tells_you_the_extra_to_install():
-    pytest.importorskip  # noqa: B018 - documents intent when the driver IS present
-    try:
-        import snowflake.connector  # noqa: F401, PLC0415
-
-        pytest.skip("snowflake driver is installed; the guidance path cannot run")
-    except ImportError:
-        pass
-
-    with pytest.raises(EngineError) as excinfo:
-        SnowflakeEngine(account="x")
-    message = str(excinfo.value)
-    assert "zeyvor[snowflake]" in message and "pip install" in message
-
-
 def test_missing_bigquery_driver_tells_you_the_extra_to_install():
     try:
         from google.cloud import bigquery  # noqa: F401, PLC0415
@@ -159,10 +144,10 @@ class FakeConnection:
 
 def test_dbapi_engine_executes_and_describes():
     """The generic PEP 249 path is what every future warehouse rides on."""
-    from zeyvor.engines.base import SnowflakeDialect
+    from zeyvor.engines.base import PostgresDialect
 
     connection = FakeConnection([(1, "a"), (2, "b")])
-    engine = DBAPIEngine(connection, SnowflakeDialect())
+    engine = DBAPIEngine(connection, PostgresDialect())
 
     assert engine.execute("SELECT 1") == [(1, "a"), (2, "b")]
     assert engine.query_count == 1
@@ -176,13 +161,13 @@ def test_dbapi_engine_executes_and_describes():
 
 
 def test_dbapi_failures_become_engine_errors():
-    from zeyvor.engines.base import SnowflakeDialect
+    from zeyvor.engines.base import PostgresDialect
 
     class Broken:
         def cursor(self):
             raise RuntimeError("connection reset")
 
-    engine = DBAPIEngine(Broken(), SnowflakeDialect())
+    engine = DBAPIEngine(Broken(), PostgresDialect())
     with pytest.raises(EngineError) as excinfo:
         engine.execute("SELECT 1")
     assert "connection reset" in str(excinfo.value)

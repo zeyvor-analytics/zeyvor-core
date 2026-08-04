@@ -16,7 +16,7 @@ inputs:
     description: Path to a dbt manifest.json. Takes the tables from dbt instead.
     default: ""
   warehouse:
-    description: 'Connection the dbt models live in, e.g. snowflake://ACCOUNT'
+    description: 'Connection the dbt models live in, e.g. bigquery://project'
     default: ""
   models:
     description: Space-separated dbt model names to limit the check to.

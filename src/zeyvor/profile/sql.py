@@ -179,9 +179,9 @@ def _over_one_scan(relation: Relation, branches: list[str]) -> str:
     batch, a 17x improvement, with identical results.
 
     A plain CTE rather than DuckDB's `AS MATERIALIZED`, which measured the same
-    and would not port: Postgres, Snowflake and BigQuery all understand this
-    form, and a warehouse re-reading a wide table twenty times is the same bug
-    with a bigger bill.
+    and would not port: Postgres and BigQuery both understand this form, and a
+    warehouse re-reading a wide table twenty times is the same bug with a
+    bigger bill.
     """
     if len(branches) == 1:
         # One branch reads the source once anyway, and the CTE would only add

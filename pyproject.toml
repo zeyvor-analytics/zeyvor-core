@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zeyvor"
-version = "0.2.0"
+version = "0.3.0"
 description = "Semantic data quality: catch when your data stops meaning what your schema says it means."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -29,7 +29,6 @@ dependencies = ["duckdb>=0.10.0", "PyYAML>=6.0"]
 
 [project.optional-dependencies]
 postgres = ["duckdb>=0.10.0"]          # served by the duckdb `postgres` extension
-snowflake = ["snowflake-connector-python>=3.0"]
 bigquery = ["google-cloud-bigquery>=3.0"]
 ai = ["anthropic>=0.40"]               # only needed to *generate* a contract
 dev = ["pytest>=7.0", "pytest-cov>=4.0", "anthropic>=0.40"]

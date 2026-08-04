@@ -2,7 +2,7 @@
 
 Executing them in the engine verifies two things at once: that the pattern means
 what it should, and that it is RE2-compatible — which is what makes the same
-expression valid on BigQuery and Snowflake.
+expression valid on BigQuery too.
 """
 
 from __future__ import annotations

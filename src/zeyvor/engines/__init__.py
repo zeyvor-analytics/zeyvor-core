@@ -8,7 +8,6 @@ from .base import (
     EngineError,
     PostgresDialect,
     Relation,
-    SnowflakeDialect,
 )
 from .duckdb_engine import DuckDBEngine
 
@@ -21,5 +20,4 @@ __all__ = [
     "EngineError",
     "PostgresDialect",
     "Relation",
-    "SnowflakeDialect",
 ]

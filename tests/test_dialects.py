@@ -2,26 +2,19 @@
 
 The warehouse adapters cannot be exercised offline, but the SQL they *generate*
 can be. These tests prove the dialect layer is complete for every supported
-engine — that adding Snowflake or BigQuery does not require touching the
-profiler, and that no dialect silently falls back to DuckDB syntax it does not
-support.
+engine — that adding a new warehouse does not require touching the profiler,
+and that no dialect silently falls back to DuckDB syntax it does not support.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from zeyvor.engines.base import (
-    BigQueryDialect,
-    DuckDBDialect,
-    PostgresDialect,
-    Relation,
-    SnowflakeDialect,
-)
+from zeyvor.engines.base import BigQueryDialect, DuckDBDialect, PostgresDialect, Relation
 from zeyvor.profile import sql as sqlgen
 from zeyvor.profile.patterns import ALL_PATTERNS
 
-DIALECTS = [DuckDBDialect(), PostgresDialect(), SnowflakeDialect(), BigQueryDialect()]
+DIALECTS = [DuckDBDialect(), PostgresDialect(), BigQueryDialect()]
 RELATION = Relation(sql='"orders"', name="orders", source_uri="test")
 COLUMNS = ["order_id", "signup date", 'weird"name']
 
@@ -81,13 +74,6 @@ def test_bigquery_uses_safe_cast_backticks_and_raw_regex():
     assert dialect.regex_match("x", "^a$").startswith("REGEXP_CONTAINS")
     assert "APPROX_QUANTILES" in dialect.quantile("x", 0.5)
     assert dialect.exact_distinct_default is False
-
-
-def test_snowflake_uses_rlike_and_percentile_cont():
-    dialect = SnowflakeDialect()
-    assert dialect.regex_match("x", "^a$").startswith("RLIKE")
-    assert "WITHIN GROUP" in dialect.quantile("x", 0.5)
-    assert dialect.try_cast("x", "NUMBER(38,0)").startswith("TRY_CAST")
 
 
 def test_duckdb_and_postgres_share_execution_but_report_differently():

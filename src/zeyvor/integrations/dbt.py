@@ -9,7 +9,7 @@ What the manifest deliberately does *not* contain is credentials; those live in
 dbt's own resolution (and get it subtly wrong across versions), the connection is
 supplied once on the command line and the manifest supplies the rest:
 
-    zeyvor check --dbt target/manifest.json --warehouse "snowflake://ACCOUNT"
+    zeyvor check --dbt target/manifest.json --warehouse "bigquery://project"
 
 The manifest format has changed across dbt releases, so everything here reads
 defensively: fields are fetched by name with fallbacks, never by position, and a
@@ -49,7 +49,7 @@ class DbtModel:
     def source_uri(self, warehouse: str) -> str:
         """Combine the connection with this model's location.
 
-        `warehouse` is everything before the fragment — `snowflake://ACCOUNT`,
+        `warehouse` is everything before the fragment — `bigquery://project`,
         `postgres://user:pw@host/db`, `duckdb:///warehouse.duckdb`.
         """
         base = warehouse.rstrip("#")
@@ -165,7 +165,7 @@ def sources_for(
     if not warehouse:
         raise DbtError(
             "A dbt manifest says which tables exist but not how to reach them. "
-            'Pass the connection: --warehouse "snowflake://ACCOUNT"'
+            'Pass the connection: --warehouse "bigquery://project"'
         )
     return [(model.name, model.source_uri(warehouse)) for model in models(manifest, select=select)]
 

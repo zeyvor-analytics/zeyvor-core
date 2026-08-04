@@ -1,9 +1,9 @@
 """Warehouse engines: profiling SQL executed by the warehouse itself.
 
-Snowflake and BigQuery have no DuckDB extension, and copying a fact table to a
-laptop to measure it would defeat the point. Instead the same generated
-aggregates are sent to the warehouse over its own driver, so the data never
-moves and the customer pays only for a few scan queries.
+BigQuery has no DuckDB extension, and copying a fact table to a laptop to
+measure it would defeat the point. Instead the same generated aggregates are
+sent to the warehouse over its own driver, so the data never moves and the
+customer pays only for a few scan queries.
 
 These adapters are deliberately thin. They are exercised against real
 warehouses rather than in the unit-test suite, which runs offline.
@@ -14,7 +14,7 @@ from __future__ import annotations
 import contextlib
 from typing import Any
 
-from .base import BigQueryDialect, Engine, EngineError, Relation, SnowflakeDialect
+from .base import BigQueryDialect, Engine, EngineError, Relation
 
 
 class DBAPIEngine(Engine):
@@ -55,21 +55,6 @@ class DBAPIEngine(Engine):
     def close(self) -> None:
         with contextlib.suppress(Exception):  # pragma: no cover
             self._conn.close()
-
-
-class SnowflakeEngine(DBAPIEngine):
-    def __init__(self, **connect_kwargs: Any) -> None:
-        try:
-            import snowflake.connector  # noqa: PLC0415
-        except ImportError as exc:
-            raise EngineError(
-                "Snowflake support requires: pip install 'zeyvor[snowflake]'"
-            ) from exc
-        try:
-            conn = snowflake.connector.connect(**connect_kwargs)
-        except Exception as exc:
-            raise EngineError(f"Could not connect to Snowflake: {exc}") from exc
-        super().__init__(conn, SnowflakeDialect())
 
 
 class BigQueryEngine(Engine):

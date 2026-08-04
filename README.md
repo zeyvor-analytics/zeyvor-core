@@ -28,7 +28,7 @@ pip install zeyvor
 DuckDB and PyYAML are the only required dependencies. Warehouse drivers are optional extras:
 
 ```bash
-pip install 'zeyvor[snowflake]'    # or [bigquery]
+pip install 'zeyvor[bigquery]'
 ```
 
 ## Use
@@ -92,8 +92,8 @@ While adopting, `warn-only: true` reports everything and never fails the build.
 dbt already knows which tables exist and where. Point Zeyvor at the manifest and supply the connection once:
 
 ```bash
-zeyvor init  --dbt target/manifest.json --warehouse "snowflake://ACCOUNT" -o zeyvor/
-zeyvor check --dbt target/manifest.json --warehouse "snowflake://ACCOUNT" -c zeyvor/
+zeyvor init  --dbt target/manifest.json --warehouse "bigquery://project" -o zeyvor/
+zeyvor check --dbt target/manifest.json --warehouse "bigquery://project" -c zeyvor/
 ```
 
 Seeds and snapshots are included; ephemeral models are skipped, since they are inlined as CTEs and have no table to check. A model's **alias** is used rather than its name — checking the wrong table would be a silent no-op. `--models orders customers` narrows, and narrowing scopes the check rather than reporting everything else as missing.
@@ -119,7 +119,7 @@ zeyvor init orders.csv                                # local file
 zeyvor init "data/*.parquet"                          # glob
 zeyvor init https://host/export.csv                   # remote file
 zeyvor init "postgres://user:pw@host/db#public.orders" # live table
-zeyvor init "snowflake://ACCOUNT#DB.SCHEMA.ORDERS"     # warehouse
+zeyvor init "bigquery://project#dataset.orders"        # warehouse
 ```
 
 Or use it as a library — the CLI is a thin shell over it:
@@ -182,7 +182,7 @@ Twenty-four violation types, each with a default severity. `type_contaminated` i
 
 ## How it works
 
-**Nothing is downloaded.** Every number in a profile is a SQL aggregate executed where the data already lives — DuckDB locally for files, the warehouse itself for Snowflake and BigQuery. A 200-column table costs the same handful of queries as a 5-column one, because all per-column metrics are computed as expressions inside a single `SELECT`.
+**Nothing is downloaded.** Every number in a profile is a SQL aggregate executed where the data already lives — DuckDB locally for files, the warehouse itself for BigQuery. A 200-column table costs the same handful of queries as a 5-column one, because all per-column metrics are computed as expressions inside a single `SELECT`.
 
 ```
 pass 1   row count
@@ -254,7 +254,7 @@ python -m venv .venv && .venv/bin/pip install -e '.[dev]'
 
 471 tests, no network access required. Regenerate fixtures with `python tests/fixtures/generate.py`.
 
-Patterns are tested by executing them inside DuckDB rather than Python's `re`, which verifies both correctness and RE2 compatibility — the property that lets the same expression run on BigQuery and Snowflake.
+Patterns are tested by executing them inside DuckDB rather than Python's `re`, which verifies both correctness and RE2 compatibility — the property that lets the same expression run on BigQuery too.
 
 <details>
 <summary>Troubleshooting: <code>pip list</code> shows zeyvor but <code>import zeyvor</code> fails (macOS)</summary>
@@ -272,7 +272,7 @@ Running the test suite is unaffected, since pytest is configured with `pythonpat
 
 ```
 src/zeyvor/
-  engines/          where SQL runs: DuckDB, Snowflake, BigQuery + dialects
+  engines/          where SQL runs: DuckDB, BigQuery + dialects
   profile/          Part 1 — measurement
     models.py       the profile data model (the interface to everything downstream)
     sql.py          SQL generation — every measurement as an aggregate

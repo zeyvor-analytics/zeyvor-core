@@ -13,7 +13,7 @@ column called ``notes`` holding 47 email addresses is invisible to any
 name-based check, and it is exactly the leak that matters.
 
 All patterns are RE2-compatible (no lookaheads, no backreferences) so the same
-expression runs on DuckDB, BigQuery and Snowflake.
+expression runs on DuckDB and BigQuery.
 """
 
 from __future__ import annotations

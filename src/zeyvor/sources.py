@@ -10,7 +10,6 @@ Accepted forms::
     postgres://user:pw@host/db#public.orders
     mysql://user:pw@host/db#orders
     sqlite:///local.db#orders
-    snowflake://ACCOUNT#DB.SCHEMA.TABLE
     bigquery://project#dataset.table
 
 A trailing ``#name`` fragment selects the table for database sources.
@@ -41,7 +40,6 @@ DB_SCHEMES = {
     "postgresql": "postgres",
     "mysql": "mysql",
     "sqlite": "sqlite",
-    "snowflake": "snowflake",
     "bigquery": "bigquery",
 }
 
@@ -175,31 +173,13 @@ def resolve_source(
     if scheme in DB_SCHEMES:
         kind = DB_SCHEMES[scheme]
 
-        if kind == "snowflake":
-            from .engines.warehouse import SnowflakeEngine  # noqa: PLC0415
-
-            if not fragment:
-                raise ValueError(
-                    "Snowflake sources need a table: snowflake://ACCOUNT#DB.SCHEMA.TABLE"
-                )
-            account = uri.split("://", 1)[1].strip("/")
-            eng: Engine = SnowflakeEngine(account=account or None, **connect_kwargs)
-            return ResolvedSource(
-                engine=eng,
-                relation=Relation(
-                    sql=_qualified_table(eng, fragment),
-                    name=fragment.split(".")[-1],
-                    source_uri=source,
-                ),
-            )
-
         if kind == "bigquery":
             from .engines.warehouse import BigQueryEngine  # noqa: PLC0415
 
             if not fragment:
                 raise ValueError("BigQuery sources need a table: bigquery://project#dataset.table")
             project = uri.split("://", 1)[1].strip("/") or None
-            eng = BigQueryEngine(project=project, **connect_kwargs)
+            eng: Engine = BigQueryEngine(project=project, **connect_kwargs)
             full = f"{project}.{fragment}" if project and fragment.count(".") == 1 else fragment
             return ResolvedSource(
                 engine=eng,

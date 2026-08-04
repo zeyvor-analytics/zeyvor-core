@@ -2,7 +2,7 @@
 
 Zeyvor never pulls rows into Python to profile them. Every measurement is a SQL
 aggregate that runs *where the data already lives* — DuckDB locally for files,
-or the warehouse itself for Snowflake/BigQuery. An Engine is therefore a very
+or the warehouse itself for BigQuery. An Engine is therefore a very
 thin thing: it executes SQL and lists columns. Everything else is SQL
 generation, which is the Dialect's job.
 """
@@ -71,8 +71,8 @@ class Dialect:
     def quote_regex(self, pattern: str) -> str:
         """Regex literals need raw-string handling on some engines.
 
-        DuckDB and Snowflake treat backslashes in single-quoted strings
-        literally, so a normal literal is correct here.
+        DuckDB treats backslashes in single-quoted strings literally, so a
+        normal literal is correct here.
         """
         return self.quote_literal(pattern)
 
@@ -160,28 +160,6 @@ class PostgresDialect(Dialect):
     """
 
     name = "postgres"
-
-
-class SnowflakeDialect(Dialect):
-    name = "snowflake"
-    int_type = "NUMBER(38,0)"
-    float_type = "FLOAT"
-
-    def regex_match(self, expr: str, pattern: str) -> str:
-        return f"RLIKE({expr}, {self.quote_regex(pattern)})"
-
-    def regex_replace_all(self, expr: str, pattern: str, replacement: str) -> str:
-        # Snowflake REGEXP_REPLACE replaces all occurrences by default.
-        return (
-            f"REGEXP_REPLACE({expr}, {self.quote_regex(pattern)}, "
-            f"{self.quote_literal(replacement)})"
-        )
-
-    def quantile(self, expr: str, q: float) -> str:
-        return f"PERCENTILE_CONT({q}) WITHIN GROUP (ORDER BY {expr})"
-
-    def approx_count_distinct(self, expr: str) -> str:
-        return f"APPROX_COUNT_DISTINCT({expr})"
 
 
 class BigQueryDialect(Dialect):

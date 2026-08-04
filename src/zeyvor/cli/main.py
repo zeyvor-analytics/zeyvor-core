@@ -86,7 +86,7 @@ def _add_dbt_options(parser: argparse.ArgumentParser) -> None:
     )
     group.add_argument(
         "--warehouse",
-        help='Connection the dbt models live in, e.g. "snowflake://ACCOUNT"',
+        help='Connection the dbt models live in, e.g. "bigquery://project"',
     )
     group.add_argument(
         "--models",

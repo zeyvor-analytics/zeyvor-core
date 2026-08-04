@@ -122,6 +122,22 @@ zeyvor init "postgres://user:pw@host/db#public.orders" # live table
 zeyvor init "bigquery://project#dataset.orders"        # warehouse
 ```
 
+**A whole schema at once.** A `*` in the table part asks the database what it
+holds, because naming two hundred tables on a command line is not a workflow
+anybody sustains. System schemas are never profiled, so `#*` means your tables,
+not Postgres's two hundred catalog relations.
+
+```bash
+zeyvor init "postgres://user:pw@host/db#public.*"    -o contracts/  # one schema
+zeyvor init "postgres://user:pw@host/db#*"           -o contracts/  # every schema
+zeyvor init "postgres://user:pw@host/db#public.stg_*" -o contracts/ # one layer
+```
+
+`-o contracts/` writes one file per table, so a change to one model touches one
+file and a pull request stays readable. `zeyvor check -c contracts/` reads the
+directory back, and the same wildcard works there — a contract generated from a
+wildcard has to be checkable by one.
+
 **A committed contract should never hold a credential.** `${VAR}` inside a database
 source is expanded from the environment at the moment a connection is made, and
 only there — the contract records the literal, unexpanded string. Single quotes

@@ -184,3 +184,72 @@ def test_the_committed_source_keeps_the_placeholder_not_the_secret(tmp_path, mon
         assert resolved.engine.execute("select * from " + resolved.relation.sql) == []
     finally:
         resolved.close()
+
+
+# ── many tables at once ────────────────────────────────────────────────────────
+#
+# Naming two hundred tables on a command line is not a workflow anybody
+# sustains, and a data model of that size is the normal case rather than the
+# exotic one. A `*` in the table part asks the database what it holds.
+
+
+def _sqlite_with(tmp_path, tables: dict[str, str]):
+    import sqlite3
+
+    path = tmp_path / "wh.db"
+    conn = sqlite3.connect(path)
+    for name, ddl in tables.items():
+        conn.execute(f"create table {name} ({ddl})")
+    conn.commit()
+    conn.close()
+    return path
+
+
+def test_a_source_without_a_wildcard_is_returned_untouched():
+    """Safe to call unconditionally, which is why the CLI does."""
+    from zeyvor.sources import expand_tables
+
+    assert expand_tables("orders.csv") == ["orders.csv"]
+    assert expand_tables("postgres://h/db#public.orders") == ["postgres://h/db#public.orders"]
+
+
+def test_a_wildcard_lists_every_table(tmp_path):
+    from zeyvor.sources import expand_tables
+
+    path = _sqlite_with(tmp_path, {"orders": "id int", "customers": "id int", "events": "id int"})
+    expanded = expand_tables(f"sqlite:///{path}#*")
+    assert sorted(s.split("#")[1] for s in expanded) == ["customers", "events", "orders"]
+
+
+def test_a_wildcard_can_match_a_prefix(tmp_path):
+    """Warehouses distinguish layers by prefix — stg_, dim_, fct_."""
+    from zeyvor.sources import expand_tables
+
+    path = _sqlite_with(
+        tmp_path, {"stg_orders": "id int", "stg_users": "id int", "fct_sales": "id int"}
+    )
+    expanded = expand_tables(f"sqlite:///{path}#stg_*")
+    assert sorted(s.split("#")[1] for s in expanded) == ["stg_orders", "stg_users"]
+
+
+def test_a_wildcard_that_matches_nothing_says_so(tmp_path):
+    from zeyvor.sources import expand_tables
+
+    path = _sqlite_with(tmp_path, {"orders": "id int"})
+    with pytest.raises(ValueError, match="No tables matched"):
+        expand_tables(f"sqlite:///{path}#nope_*")
+
+
+def test_a_wildcard_on_a_file_source_is_rejected_with_the_shell_alternative():
+    from zeyvor.sources import expand_tables
+
+    with pytest.raises(ValueError, match="shell glob"):
+        expand_tables("data.csv#*")
+
+
+def test_system_schemas_are_never_profiled():
+    """Postgres answers `#*` with ~200 pg_catalog and information_schema
+    relations before reaching anything the user owns."""
+    from zeyvor.sources import SYSTEM_SCHEMAS
+
+    assert {"pg_catalog", "information_schema"} <= SYSTEM_SCHEMAS

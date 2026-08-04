@@ -49,6 +49,47 @@ def _profile_options(args) -> ProfileOptions:
     )
 
 
+def _expand_sources(sources: list[str], args, console: Console) -> list[str]:
+    """Resolve any `#schema.*` wildcards into one source per real table.
+
+    Applied to `init` and `check` alike: a contract generated from a wildcard
+    has to be checkable by the same wildcard, or the second half of the workflow
+    asks for the two hundred table names the first half just saved you from.
+    """
+    from ..sources import expand_tables
+
+    out: list[str] = []
+    for source in sources:
+        try:
+            expanded = expand_tables(
+                source,
+                threads=getattr(args, "threads", None),
+                memory_limit=getattr(args, "memory_limit", None),
+            )
+        except (EngineError, ValueError) as exc:
+            raise CliError(f"could not expand {source}: {exc}") from None
+        if len(expanded) > 1:
+            console.step(f"found {len(expanded)} tables matching {source.split('#', 1)[1]}")
+        out.extend(expanded)
+    return out
+
+
+class TableGone(Exception):
+    """The connection worked and the table was not there.
+
+    Distinct from every other read failure on purpose. A refused connection or a
+    bad password is a broken invocation — exit 2, wake the platform team. A table
+    that was renamed or dropped is the data no longer matching what was promised,
+    which is exit 1 and the data team, and is the difference between the two exit
+    codes this tool documents.
+    """
+
+
+def _is_missing_table(message: str) -> bool:
+    lowered = message.lower()
+    return ("catalog error" in lowered or "does not exist" in lowered) and "table" in lowered
+
+
 def _profile_one(source: str, args, console: Console, *, table: str | None = None) -> TableProfile:
     console.step(f"profiling {source}")
     try:
@@ -62,6 +103,8 @@ def _profile_one(source: str, args, console: Console, *, table: str | None = Non
     except FileNotFoundError as exc:
         raise CliError(str(exc)) from None
     except (EngineError, ValueError) as exc:
+        if _is_missing_table(str(exc)):
+            raise TableGone(str(exc)) from None
         raise CliError(f"could not read {source}: {exc}") from None
 
 
@@ -117,9 +160,13 @@ def _profile_for_check(args, contract: Contract, console: Console) -> list[Table
         return profiles
 
     if args.sources:
-        profiles = [
-            _profile_one(source, args, console, table=args.table) for source in args.sources
-        ]
+        sources = _expand_sources(args.sources, args, console)
+        profiles = []
+        for source in sources:
+            try:
+                profiles.append(_profile_one(source, args, console, table=args.table))
+            except TableGone:
+                console.step(f"{source} is gone")
         # A single source checked against a single-table contract is the common
         # case, and insisting the names match would be pedantic.
         if len(profiles) == 1 and len(contract.tables) == 1:
@@ -136,7 +183,15 @@ def _profile_for_check(args, contract: Contract, console: Console) -> list[Table
         )
     profiles = []
     for table_name, source in recorded:
-        profile = _profile_one(source, args, console)
+        try:
+            profile = _profile_one(source, args, console)
+        except TableGone:
+            # Leave it out and let the comparison report `table_missing`, which
+            # is what actually happened: the contract promised this table and it
+            # is not there. Raising here instead would exit 2 — "you typed it
+            # wrong" — for a table someone renamed or dropped upstream.
+            console.step(f"{table_name} is gone from its source")
+            continue
         profile.name = table_name
         profiles.append(profile)
     return profiles
@@ -146,6 +201,15 @@ def _profile_for_check(args, contract: Contract, console: Console) -> list[Table
 
 
 def cmd_init(args, console: Console) -> int:
+    # `init` asked for a specific table, so its absence is a mistyped command
+    # rather than a data problem — the opposite of what it means during `check`.
+    try:
+        return _init(args, console)
+    except TableGone as exc:
+        raise CliError(str(exc)) from None
+
+
+def _init(args, console: Console) -> int:
     output = args.output or DEFAULT_CONTRACT_PATH
     if os.path.exists(output) and not args.force:
         raise CliError(
@@ -166,9 +230,8 @@ def cmd_init(args, console: Console) -> int:
                 "nothing to profile",
                 "pass a source, or a dbt manifest: --dbt target/manifest.json",
             )
-        profiles = [
-            _profile_one(source, args, console, table=args.table) for source in args.sources
-        ]
+        sources = _expand_sources(args.sources, args, console)
+        profiles = [_profile_one(source, args, console, table=args.table) for source in sources]
 
     describer = None
     if args.ai:

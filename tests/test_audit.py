@@ -291,3 +291,95 @@ def test_no_subprocess_replaces_the_whole_environment():
         "subprocess env= replaces the environment instead of extending it "
         "({**os.environ, ...}): " + ", ".join(offenders)
     )
+
+
+# ── the README is a promise the CLI has to keep ────────────────────────────────
+
+
+def _readme_bash_blocks() -> list[str]:
+    import pathlib
+    import re
+
+    readme = pathlib.Path(__file__).resolve().parent.parent / "README.md"
+    return re.findall(r"```bash\n(.*?)```", readme.read_text(encoding="utf-8"), re.S)
+
+
+def _cli_surface():
+    """(subcommand names, every flag string the parser accepts anywhere)."""
+    from zeyvor.cli.main import build_parser
+
+    parser = build_parser()
+    subcommands = parser._subparsers._group_actions[0].choices  # type: ignore[union-attr]
+    flags = {opt for action in parser._actions for opt in action.option_strings}
+    for sub in subcommands.values():
+        for action in sub._actions:
+            flags.update(action.option_strings)
+    return set(subcommands), flags
+
+
+def test_every_command_the_readme_shows_actually_exists():
+    """Documentation drift is silent and expensive: the README is the PyPI page
+    and the first thing a stranger copies from. Three separate errors shipped
+    before this test existed — a flag documented comma-separated when it takes
+    spaces, a Python version one minor behind the real floor, and a whole
+    warehouse documented as working when it could not authenticate at all.
+    """
+    import re
+
+    subcommands, _ = _cli_surface()
+    seen = set()
+    for block in _readme_bash_blocks():
+        for line in block.splitlines():
+            match = re.match(r"\s*zeyvor\s+([a-z][a-z-]*)", line)
+            if match:
+                seen.add(match.group(1))
+
+    assert seen, "no zeyvor commands found in the README — has it moved?"
+    unknown = seen - subcommands
+    assert not unknown, f"README documents commands that do not exist: {sorted(unknown)}"
+
+
+def test_every_flag_the_readme_shows_actually_exists():
+    import re
+
+    _, flags = _cli_surface()
+    seen = set()
+    for block in _readme_bash_blocks():
+        for line in block.splitlines():
+            if "zeyvor" not in line:
+                continue
+            seen.update(re.findall(r"(?<![\w-])(--[a-z][a-z-]+)", line))
+
+    unknown = seen - flags
+    assert not unknown, f"README documents flags that do not exist: {sorted(unknown)}"
+
+
+def test_any_stated_python_floor_matches_pyproject():
+    """`pip install` on an unsupported Python fails with a resolver error that
+    names no version, so a stated floor has to be the real one.
+
+    Deliberately narrow: only phrasings that *state a requirement* count. An
+    incidental mention — "Python 3.11+ ignores hidden .pth files" in a
+    troubleshooting note — is a fact about CPython, not a claim about this
+    package, and matching it would make this test cry wolf until someone
+    deleted it.
+    """
+    import pathlib
+    import re
+
+    root = pathlib.Path(__file__).resolve().parent.parent
+    declared = re.search(
+        r'requires-python\s*=\s*">=([\d.]+)"',
+        (root / "pyproject.toml").read_text(encoding="utf-8"),
+    )
+    assert declared, "no requires-python in pyproject.toml"
+
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    stated = re.findall(
+        r"(?:requires |needs )?Python (\d+\.\d+)(?: or newer| or later|\+ required)",
+        readme,
+    )
+    for version in stated:
+        assert version == declared.group(1), (
+            f"README states Python {version}, pyproject requires >={declared.group(1)}"
+        )

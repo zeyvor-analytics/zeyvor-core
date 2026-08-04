@@ -30,6 +30,7 @@ means a changed environment variable, not a changed, re-reviewed file.
 
 from __future__ import annotations
 
+import fnmatch
 import os
 import re
 from dataclasses import dataclass
@@ -134,6 +135,124 @@ def _qualified_table(dialect_engine: Engine, fragment: str) -> str:
     """Quote a possibly dotted table reference (``schema.table``)."""
     parts = [p for p in fragment.split(".") if p]
     return ".".join(dialect_engine.dialect.quote_ident(p) for p in parts)
+
+
+# Schemas a warehouse keeps for itself. A wildcard means "my tables", and
+# without this `#*` on Postgres profiles roughly two hundred pg_catalog and
+# information_schema relations before reaching anything the user owns.
+SYSTEM_SCHEMAS = frozenset(
+    {
+        "information_schema",
+        "pg_catalog",
+        "pg_toast",
+        "sys",
+        "mysql",
+        "performance_schema",
+        "sqlite_master",
+        "temp",
+    }
+)
+
+
+def expand_tables(
+    source: str,
+    *,
+    threads: int | None = None,
+    memory_limit: str | None = None,
+    connect_kwargs: dict[str, Any] | None = None,
+) -> list[str]:
+    """Turn one source whose table part contains ``*`` into one source per table.
+
+    A data model of any size is the normal case, not the exotic one, and naming
+    two hundred tables on a command line is not a workflow anybody sustains.
+    ``#public.*`` asks the database what it holds and profiles all of it;
+    ``#*`` covers every user schema; ``#public.stg_*`` covers a prefix, which is
+    how most warehouses distinguish layers.
+
+    Anything without a ``*`` is returned untouched, so this is safe to call on
+    every source unconditionally.
+    """
+    source = source.strip()
+    uri, fragment = _split_fragment(source)
+    if not fragment or "*" not in fragment:
+        return [source]
+
+    scheme = uri.split("://", 1)[0].lower() if "://" in uri else ""
+    kind = DB_SCHEMES.get(scheme)
+    if kind is None:
+        raise ValueError(
+            "A table wildcard only works on a database source, e.g. "
+            'postgres://user:pw@host/db#public.* — for files, use a shell glob: "data/*.csv"'
+        )
+    if kind == "bigquery":
+        raise ValueError(
+            "BigQuery does not support a table wildcard yet. Name the tables, or use "
+            "--dbt if they are dbt models."
+        )
+
+    if "." in fragment:
+        schema_pattern, _, table_pattern = fragment.rpartition(".")
+    else:
+        schema_pattern, table_pattern = "*", fragment
+
+    engine, catalog = _open_for_discovery(kind, uri, threads, memory_limit, connect_kwargs)
+    try:
+        rows = engine.execute(
+            "SELECT schema_name, table_name FROM duckdb_tables() "
+            f"WHERE database_name = {_q(catalog)} ORDER BY schema_name, table_name"
+        )
+    finally:
+        engine.close()
+
+    matched = [
+        (schema, table)
+        for schema, table in rows
+        if schema not in SYSTEM_SCHEMAS
+        and fnmatch.fnmatch(schema, schema_pattern)
+        and fnmatch.fnmatch(table, table_pattern)
+    ]
+    if not matched:
+        raise ValueError(
+            f"No tables matched '{fragment}'. Check the schema name — a Postgres "
+            "database usually keeps user tables in 'public'."
+        )
+    # sqlite has exactly one schema and calls it `main`; carrying that into the
+    # table name would make every contract read `main.orders`.
+    single_schema = len({schema for schema, _ in matched}) == 1
+    return [
+        f"{uri}#{table if single_schema and schema in ('main', 'public') else f'{schema}.{table}'}"
+        for schema, table in matched
+    ]
+
+
+def _open_for_discovery(
+    kind: str,
+    uri: str,
+    threads: int | None,
+    memory_limit: str | None,
+    connect_kwargs: dict[str, Any] | None,
+) -> tuple[Engine, str]:
+    """An engine that can list the source's tables, plus the catalog to look in.
+
+    DuckDB files are opened directly and so list under their own name; everything
+    else is reached through an ATTACH and lists under the alias.
+    """
+    if kind == "duckdb":
+        path = _path_from_uri(_expand_env(uri))
+        engine = DuckDBEngine(path or ":memory:", threads=threads, memory_limit=memory_limit)
+        rows = engine.execute(
+            "SELECT database_name FROM duckdb_databases() WHERE NOT internal LIMIT 1"
+        )
+        return engine, (rows[0][0] if rows else "memory")
+
+    dsn = _dsn_for(kind, uri)
+    engine = DuckDBEngine(
+        ":memory:",
+        attach=((dsn, "zeyvor_src", kind),),
+        threads=threads,
+        memory_limit=memory_limit,
+    )
+    return engine, "zeyvor_src"
 
 
 def resolve_source(
@@ -296,4 +415,4 @@ def _dsn_for(kind: str, uri: str) -> str:
     return uri
 
 
-__all__ = ["ResolvedSource", "resolve_source", "EngineError"]
+__all__ = ["ResolvedSource", "expand_tables", "resolve_source", "EngineError"]

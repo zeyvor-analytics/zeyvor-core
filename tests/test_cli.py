@@ -651,3 +651,54 @@ def test_init_with_nothing_to_profile_says_so(project, capsys):
     err = capsys.readouterr().err
     assert "nothing to profile" in err
     assert "--dbt" in err
+
+
+# ── a table that went away ─────────────────────────────────────────────────────
+
+
+def test_a_renamed_table_is_a_violation_not_a_usage_error(tmp_path, monkeypatch, capsys):
+    """The two exit codes carry different instructions in CI.
+
+    2 means the invocation was wrong — wake whoever owns the pipeline config.
+    1 means the data stopped matching — wake whoever owns the data. A table
+    renamed upstream is squarely the second, and used to exit 2 because the
+    engine's "no such table" error escaped as a read failure.
+    """
+    import sqlite3
+
+    monkeypatch.chdir(tmp_path)
+    db = tmp_path / "wh.db"
+    conn = sqlite3.connect(db)
+    conn.execute("create table orders (id integer primary key, status text)")
+    conn.executemany("insert into orders values (?,?)", [(i, "shipped") for i in range(1, 40)])
+    conn.commit()
+    conn.close()
+
+    assert main(["init", f"sqlite:///{db}#orders"]) == EXIT_OK
+    capsys.readouterr()
+
+    conn = sqlite3.connect(db)
+    conn.execute("alter table orders rename to orders_v2")
+    conn.commit()
+    conn.close()
+
+    assert main(["check"]) == EXIT_VIOLATIONS
+    out = capsys.readouterr().out
+    assert "table_missing" in out
+
+
+def test_an_unreachable_database_is_still_a_usage_error(tmp_path, monkeypatch):
+    """The other side of the same line: a refused connection must not be
+    quietly downgraded into a data finding."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "zeyvor.yml").write_text(
+        "version: 1\n"
+        "tables:\n"
+        "  orders:\n"
+        "    source: postgres://postgres@127.0.0.1:9998/nope#public.orders\n"
+        "    columns:\n"
+        "      id:\n"
+        "        type: integer\n",
+        encoding="utf-8",
+    )
+    assert main(["check"]) == EXIT_ERROR

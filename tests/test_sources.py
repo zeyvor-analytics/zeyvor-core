@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from helpers import fixture_path
-from zeyvor.sources import _display_name, _split_fragment, resolve_source
+from zeyvor.sources import _display_name, _dsn_for, _expand_env, _split_fragment, resolve_source
 
 # ── files ─────────────────────────────────────────────────────────────────────
 
@@ -118,3 +118,69 @@ def test_table_argument_overrides_the_fragment(duck):
 def test_dotted_table_names_are_quoted_per_part(duck):
     resolved = resolve_source("x", table="main.demo_orders", engine=duck)
     assert resolved.relation.sql == '"main"."demo_orders"'
+
+
+# ── credentials in database sources ────────────────────────────────────────────
+#
+# Found by a real report: `zeyvor init "postgres://user:realpassword@host/db#t"`
+# wrote that password verbatim into the committed contract's `source:` line —
+# exactly the file the whole workflow says to commit and review like code. A
+# rotated password then meant a stale credential baked into version control,
+# with no way to fix it except regenerating the file. ${VAR} placeholders let
+# the committed file hold no secret at all, and a rotation become an
+# environment-variable change instead of a file change.
+
+
+def test_env_placeholders_expand_from_the_environment(monkeypatch):
+    monkeypatch.setenv("DB_PASSWORD", "hunter2")
+    assert (
+        _expand_env("postgres://user:${DB_PASSWORD}@host/db") == "postgres://user:hunter2@host/db"
+    )
+
+
+def test_a_source_with_no_placeholders_is_unaffected():
+    assert _expand_env("postgres://user:pw@host/db") == "postgres://user:pw@host/db"
+
+
+def test_a_missing_variable_fails_clearly_rather_than_connecting_with_the_literal_text(
+    monkeypatch,
+):
+    monkeypatch.delenv("DB_PASSWORD", raising=False)
+    with pytest.raises(ValueError, match=r"\$\{DB_PASSWORD\} is not set"):
+        _expand_env("postgres://user:${DB_PASSWORD}@host/db")
+
+
+def test_the_actual_connection_uses_the_expanded_dsn(monkeypatch):
+    """This is the half that has to work for the feature to be more than a
+    trick: whatever gets attached for real must be the real password."""
+    monkeypatch.setenv("DB_PASSWORD", "hunter2")
+    dsn = _dsn_for("postgres", "postgres://user:${DB_PASSWORD}@host/db")
+    assert dsn == "postgres://user:hunter2@host/db"
+
+
+def test_the_committed_source_keeps_the_placeholder_not_the_secret(tmp_path, monkeypatch):
+    """The other half: what a reviewer sees in the diff must never be the
+    credential, regardless of what the live connection actually used.
+
+    Exercised through a real connection (sqlite, so no network is involved)
+    rather than mocked, since the thing being proven is that the whole
+    round trip — resolve, connect, and record — keeps them separate.
+    """
+    import sqlite3
+
+    db_path = tmp_path / "t.db"
+    conn = sqlite3.connect(db_path)
+    conn.execute("create table orders (id integer primary key)")
+    conn.commit()
+    conn.close()
+
+    monkeypatch.setenv("DB_DIR", str(tmp_path))
+    literal = "sqlite:///${DB_DIR}/t.db#orders"
+
+    resolved = resolve_source(literal)
+    try:
+        assert resolved.relation.source_uri == literal
+        assert str(tmp_path) not in resolved.relation.source_uri
+        assert resolved.engine.execute("select * from " + resolved.relation.sql) == []
+    finally:
+        resolved.close()

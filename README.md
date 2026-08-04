@@ -122,6 +122,22 @@ zeyvor init "postgres://user:pw@host/db#public.orders" # live table
 zeyvor init "bigquery://project#dataset.orders"        # warehouse
 ```
 
+**A committed contract should never hold a credential.** `${VAR}` inside a database
+source is expanded from the environment at the moment a connection is made, and
+only there — the contract records the literal, unexpanded string. Single quotes
+matter here: double quotes let the shell expand `${DB_PASSWORD}` itself before
+Zeyvor ever sees the argument, which puts the real password on the command line
+and in shell history — exactly what this is for avoiding.
+
+```bash
+export DB_PASSWORD=...
+zeyvor init 'postgres://user:${DB_PASSWORD}@host/db#public.orders'
+```
+
+writes `source: postgres://user:${DB_PASSWORD}@host/db#public.orders` to
+`zeyvor.yml` — safe to commit, safe to review in a diff. A rotated password is
+then a changed environment variable, not a changed file.
+
 Or use it as a library — the CLI is a thin shell over it:
 
 ```python

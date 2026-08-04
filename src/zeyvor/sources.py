@@ -18,11 +18,20 @@ One deliberate decision lives here: file sources are read as all-VARCHAR.
 Zeyvor does not trust a reader's type guess — it measures the types itself from
 the values. Reading as text also means a messy file can never crash profiling,
 which matters because messy files are the entire point of the product.
+
+A second: ``${VAR}`` inside a database source is expanded from the environment
+at the moment a connection is made, and only there. `resolve_source` still
+records the literal, unexpanded string as `source_uri` — the thing that ends
+up written into the committed contract — so a connection string typed as
+``postgres://${DB_USER}:${DB_PASSWORD}@host/db#public.orders`` commits exactly
+that, placeholders and all, never the credential. A rotated password then
+means a changed environment variable, not a changed, re-reviewed file.
 """
 
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -251,8 +260,34 @@ def _path_from_uri(uri: str) -> str:
     return path[1:] if path.startswith("/") else path
 
 
+_ENV_VAR_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def _expand_env(value: str) -> str:
+    """Expand ``${VAR}`` placeholders from the environment.
+
+    Called once, right before a connection string becomes an actual connection
+    — never before. Whatever the caller originally typed, placeholders and all,
+    is what gets recorded as the source; this function's output is used to
+    connect and then discarded.
+    """
+
+    def replace(match: re.Match[str]) -> str:
+        name = match.group(1)
+        try:
+            return os.environ[name]
+        except KeyError:
+            raise ValueError(
+                f"${{{name}}} is not set. Export it, or use a literal value if this "
+                "connection string will not be committed anywhere."
+            ) from None
+
+    return _ENV_VAR_PATTERN.sub(replace, value)
+
+
 def _dsn_for(kind: str, uri: str) -> str:
     """DuckDB's attach DSN formats differ slightly per extension."""
+    uri = _expand_env(uri)
     if kind == "sqlite":
         return _path_from_uri(uri)
     if kind == "postgres":

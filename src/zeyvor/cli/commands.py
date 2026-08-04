@@ -218,11 +218,17 @@ def _report_what_was_written(
     # All of this is the command's result rather than narration, so it goes to a
     # single stream. Splitting it across stdout and stderr let the two buffers
     # interleave, and the success line surfaced after the summary it introduces.
+    #
+    # The path is shown absolute, not as the (often bare, often relative) string
+    # the user typed. `zeyvor init` run from a home directory with no -o flag
+    # would otherwise just say "Wrote zeyvor.yml" — true, but useless the moment
+    # the reader does not already know which directory that was.
+    location = os.path.abspath(output)
     if os.path.isdir(output):
         files = sorted(f for f in os.listdir(output) if f.endswith((".yml", ".yaml")))
-        console.success(f"Wrote {len(files)} contract file(s) to {output}")
+        console.success(f"Wrote {len(files)} contract file(s) to {location}")
     else:
-        console.success(f"Wrote {output}")
+        console.success(f"Wrote {location}")
     console.out("")
     console.out(f"  {len(contract.tables)} table(s), {len(columns)} columns")
     console.out(f"  {closed} with a closed category set")
@@ -649,7 +655,7 @@ def cmd_accept(args, console: Console) -> int:
         console.out("Would change:")
     else:
         dump(contract, path)
-        console.success(f"Updated {path}")
+        console.success(f"Updated {os.path.abspath(path)}")
     for line in changes:
         console.out(line)
     if not args.dry_run:

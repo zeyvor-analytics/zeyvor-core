@@ -9,6 +9,7 @@ streams separately. Keeping stdout and stderr distinct matters here, because
 from __future__ import annotations
 
 import json
+import os
 import shutil
 
 import pytest
@@ -58,7 +59,10 @@ def test_init_writes_a_valid_contract(project, capsys):
     assert contract.tables["orders"].source == "orders.csv"
 
     out = capsys.readouterr().out
-    assert "Wrote zeyvor.yml" in out
+    # Absolute, not the bare relative string typed on the command line — a
+    # reader running this from an unfamiliar directory has no other way to
+    # know where the file landed.
+    assert f"Wrote {path}" in out
     assert "7 columns" in out
     assert "zeyvor check" in out, "the next step should be spelled out"
 
@@ -87,6 +91,21 @@ def test_init_writes_where_told(project):
     assert main(["init", "orders.csv", "-o", "contracts/orders.yml"]) == EXIT_ERROR or True
     assert main(["init", "orders.csv", "-o", "other.yml"]) == EXIT_OK
     assert (project / "other.yml").exists()
+
+
+def test_init_reports_where_the_file_actually_landed(project, capsys):
+    """Found by running it from a home directory: 'Wrote zeyvor.yml' is true
+    and useless the moment the reader does not already know which directory
+    that was. The line has to name a place, not repeat what was typed."""
+    assert main(["init", "orders.csv"]) == EXIT_OK
+    out = capsys.readouterr().out
+
+    written = project / "zeyvor.yml"
+    assert str(written) in out
+    assert os.path.isabs(str(written))
+    # The bare relative form, unqualified by a directory, is exactly the
+    # unhelpful message this test exists to rule out.
+    assert "Wrote zeyvor.yml\n" not in out
 
 
 def test_init_covers_several_sources(project, capsys):
@@ -284,7 +303,7 @@ def test_accept_closes_the_loop(project, capsys):
 
     assert main(["accept"]) == EXIT_OK
     out = capsys.readouterr().out
-    assert "Updated zeyvor.yml" in out
+    assert f"Updated {project / 'zeyvor.yml'}" in out
     assert "signup_date" in out
 
     assert main(["check"]) == EXIT_OK, "the blessed change should now pass"
@@ -410,7 +429,7 @@ def test_quiet_suppresses_narration_but_not_the_answer(project, capsys):
     main(["init", "orders.csv", "--quiet"])
     captured = capsys.readouterr()
     assert "profiling" not in captured.err
-    assert "Wrote zeyvor.yml" in captured.out
+    assert "Wrote" in captured.out and "zeyvor.yml" in captured.out
 
 
 def test_output_has_no_escape_codes_when_not_a_terminal(project, capsys):

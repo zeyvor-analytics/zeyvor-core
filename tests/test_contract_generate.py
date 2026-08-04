@@ -447,7 +447,9 @@ def test_a_set_with_values_seen_once_is_left_open():
     build over data that was never wrong. A singleton is the tell.
     """
     counts = {"1": 12, "2": 10, "3": 8, "4": 5, "5": 4, "7": 1}
-    assert generate_column_contract(_enum_column("mutual_funds", counts)).categories_closed is not True
+    assert (
+        generate_column_contract(_enum_column("mutual_funds", counts)).categories_closed is not True
+    )
 
 
 def test_a_thoroughly_sampled_set_is_still_closed():
@@ -493,7 +495,9 @@ def test_an_integer_column_never_gets_a_fractional_bound():
     # A 1-7 preference scale, named so the quantity guard leaves it as a range
     # rather than closing the set — which is exactly how the survey columns that
     # produced `min: 0.5` reached the range branch.
-    contract = generate_column_contract(_code_column("preference_rank", [str(n) for n in range(1, 8)]))
+    contract = generate_column_contract(
+        _code_column("preference_rank", [str(n) for n in range(1, 8)])
+    )
 
     assert contract.maximum is not None, "precondition: this column takes the range branch"
     assert contract.minimum == int(contract.minimum), f"got {contract.minimum!r}"

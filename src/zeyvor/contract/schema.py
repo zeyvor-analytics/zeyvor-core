@@ -669,7 +669,9 @@ def _annotate_columns(text: str, contract: Contract) -> str:
     indentation and order is the only thing that holds for real files.
     """
     sentences = [
-        _plain_english(column) for table in contract.tables.values() for column in table.columns.values()
+        _plain_english(column)
+        for table in contract.tables.values()
+        for column in table.columns.values()
     ]
     if not sentences:
         return text
@@ -683,10 +685,14 @@ def _annotate_columns(text: str, contract: Contract) -> str:
             in_columns = True
         elif line and not line.startswith(" "):
             in_columns = False
-        elif in_columns and line.startswith("      ") and not line.startswith("       "):
-            if index < len(sentences):
-                out.append(f"      # {sentences[index]}")
-                index += 1
+        elif (
+            in_columns
+            and line.startswith("      ")
+            and not line.startswith("       ")
+            and index < len(sentences)
+        ):
+            out.append(f"      # {sentences[index]}")
+            index += 1
         out.append(line)
     return "\n".join(out)
 

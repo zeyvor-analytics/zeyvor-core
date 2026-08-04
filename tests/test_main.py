@@ -86,9 +86,7 @@ def test_the_two_version_strings_agree():
     import zeyvor
 
     pyproject = pathlib.Path(__file__).resolve().parent.parent / "pyproject.toml"
-    declared = re.search(
-        r'^version = "([^"]+)"', pyproject.read_text(encoding="utf-8"), re.M
-    )
+    declared = re.search(r'^version = "([^"]+)"', pyproject.read_text(encoding="utf-8"), re.M)
 
     assert declared, "no version in pyproject.toml"
     assert declared.group(1) == zeyvor.__version__

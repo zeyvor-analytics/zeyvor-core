@@ -112,6 +112,39 @@ A pull-request comment is a publication; your terminal is not. So published outp
 
 Slack works the same way: `zeyvor check --slack-webhook $URL`.
 
+### Keeping a history (optional)
+
+Everything above works with no account, no API key and no network. Zeyvor is a
+local tool and stays one.
+
+The one thing a local command cannot do is remember. `zeyvor check` answers a
+single question — does the data match right now — and then forgets. It cannot
+tell you a column has failed four of the last thirty runs, or that somebody
+loosened a rule last Tuesday. That needs somewhere to keep them, which means a
+server, which means an account.
+
+It is opt-in per run, and off unless you ask:
+
+```bash
+zeyvor check --upload --project acme/warehouse
+```
+
+Create a free project at [zeyvor.com/dashboard](https://zeyvor.com/dashboard),
+then set `ZEYVOR_TOKEN` to its token — a project token, not your password, scoped
+to one project and revocable.
+
+**What is sent is deliberately narrow.** A finding's *type*, the table and column
+names, a severity, and numbers. No values — not redacted, not truncated, not
+collected. There is no `--show-values` equivalent here, unlike a pull-request
+comment, because a comment is read by people you chose and a server is a third
+party holding a copy. Column names *are* sent, because a history keyed on
+anonymous ids would be unreadable — and since a name can itself be sensitive
+(`patients_hiv_positive`), that is the reason this is opt-in rather than on.
+
+A failed upload never changes the exit code. A reporting service being
+unreachable is not a data problem, so it must not turn a green build red, nor
+hide a real failure.
+
 Point it at almost anything:
 
 ```bash

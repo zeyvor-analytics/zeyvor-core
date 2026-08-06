@@ -290,3 +290,32 @@ def test_a_slack_failure_is_reported_not_swallowed(monkeypatch):
     monkeypatch.setattr("urllib.request.urlopen", refuse)
     with pytest.raises(RuntimeError, match="Could not reach Slack"):
         post_to_slack("https://hooks.slack.test/x", {"text": "hi"})
+
+
+# ── the account is optional, and the errors have to say so ────────────────────
+
+
+def test_a_missing_token_explains_what_the_account_is_for():
+    """Whoever hits this has never signed in — that is the whole population.
+
+    The wording used to be "the token from your project's settings", which
+    assumes an account, a project and a settings page the reader may not know
+    exist, and names no URL to go find them. It also never said the check
+    itself was fine, so a red error line implied a broken run.
+    """
+    from zeyvor.integrations.upload import ACCOUNT_URL, UploadError, post_report
+
+    with pytest.raises(UploadError) as excinfo:
+        post_report({}, token="")
+    message = str(excinfo.value)
+
+    assert "optional" in message.lower(), "must say the account is not required"
+    assert ACCOUNT_URL in message, "must say where to get one"
+    assert "history" in message.lower(), "must say what it is for"
+
+
+def test_the_reporting_url_points_at_the_dashboard():
+    from zeyvor.integrations.upload import ACCOUNT_URL
+
+    assert ACCOUNT_URL.startswith("https://")
+    assert "dashboard" in ACCOUNT_URL

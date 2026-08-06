@@ -39,6 +39,7 @@ from typing import Any
 SCHEMA_VERSION = 1
 
 DEFAULT_ENDPOINT = "https://zeyvor.com/api/reports"
+ACCOUNT_URL = "https://zeyvor.com/dashboard"
 
 TOKEN_ENV = "ZEYVOR_TOKEN"
 ENDPOINT_ENV = "ZEYVOR_ENDPOINT"
@@ -197,8 +198,18 @@ def post_report(
     endpoint = endpoint or os.environ.get(ENDPOINT_ENV) or DEFAULT_ENDPOINT
     token = token or os.environ.get(TOKEN_ENV) or ""
     if not token:
+        # Written for someone who has never signed in, because that is who hits
+        # this. The old wording — "the token from your project's settings" —
+        # assumed an account, a project and a settings page the reader might not
+        # know exist, and named no URL to go find them.
         raise UploadError(
-            f"No upload token. Set {TOKEN_ENV} to the token from your project's settings."
+            f"No upload token, so this run was not reported.\n"
+            f"       Reporting is optional: every check works without an account, "
+            f"and nothing was sent.\n"
+            f"       It exists to keep a history across runs — which check failed "
+            f"last Tuesday, and how often.\n"
+            f"       To turn it on, create a free project at {ACCOUNT_URL} and "
+            f"set {TOKEN_ENV} to its token."
         )
 
     data = json.dumps(payload).encode("utf-8")
@@ -241,6 +252,7 @@ def _error_detail(exc: urllib.error.HTTPError) -> str:
 
 
 __all__ = [
+    "ACCOUNT_URL",
     "DEFAULT_ENDPOINT",
     "ENDPOINT_ENV",
     "PROJECT_ENV",

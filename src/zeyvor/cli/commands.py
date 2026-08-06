@@ -496,6 +496,7 @@ def _upload_report(args, report, console: Console) -> None:
     this runs after the verdict has already been printed.
     """
     from ..integrations.upload import (
+        ACCOUNT_URL,
         PROJECT_ENV,
         UploadError,
         build_payload,
@@ -504,7 +505,12 @@ def _upload_report(args, report, console: Console) -> None:
 
     project = getattr(args, "project", None) or os.environ.get(PROJECT_ENV) or ""
     if not project:
-        console.error(f"--upload needs a project: pass --project OWNER/NAME or set {PROJECT_ENV}")
+        console.error(
+            f"--upload needs a project, so this run was not reported. Reporting is "
+            f"optional and the check itself was unaffected.\n"
+            f"       Pass --project OWNER/NAME or set {PROJECT_ENV}. Projects are "
+            f"created at {ACCOUNT_URL}."
+        )
         return
 
     try:

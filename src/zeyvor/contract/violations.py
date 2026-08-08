@@ -24,6 +24,7 @@ class ViolationType(str, Enum):
     COLUMN_MISSING = "column_missing"
     COLUMN_ADDED = "column_added"
     ROW_COUNT_BELOW_MIN = "row_count_below_min"
+    VOLUME_DROP = "volume_drop"
     TABLE_MISSING = "table_missing"
 
     # meaning
@@ -79,6 +80,7 @@ DEFAULT_SEVERITY: dict[ViolationType, Severity] = {
     ViolationType.FK_ORPHANS: Severity.FAIL,
     ViolationType.FK_FANOUT: Severity.FAIL,
     # Hygiene and "we could not check this" findings inform rather than block.
+    ViolationType.VOLUME_DROP: Severity.WARN,
     ViolationType.RELATIONSHIP_UNCHECKABLE: Severity.WARN,
     ViolationType.CATEGORY_DISAPPEARED: Severity.WARN,
     ViolationType.CATEGORIES_UNVERIFIABLE: Severity.WARN,

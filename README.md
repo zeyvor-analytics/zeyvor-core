@@ -112,16 +112,52 @@ A pull-request comment is a publication; your terminal is not. So published outp
 
 Slack works the same way: `zeyvor check --slack-webhook $URL`.
 
-### Keeping a history (optional)
+### It remembers, locally
+
+`zeyvor check` used to answer one question — does the data match right now — and
+then forget, which left a whole class of failure invisible. A table that
+normally loads fifty thousand rows and today loaded thirty thousand has violated
+nothing: `min_rows` is satisfied, every column is the right type, nothing is
+null that should not be. Only the comparison against previous runs says anything
+is wrong.
+
+So each check appends a few counts to `.zeyvor/history/`, and compares against
+them next time:
+
+```
+! daily — volume_drop
+    Contract: about 49,900 rows, the median of the last 6 runs
+    Found:    28,000 rows — 44% below normal
+    Every row here may be valid. What changed is how many arrived, which no
+    single run can show.
+```
+
+That table's `min_rows` is 20,000. Twenty-eight thousand clears it comfortably,
+having lost two fifths of the day.
+
+**It warns rather than fails, by default.** A trend is fuzzier than a fixed
+bound — the Monday after a holiday is genuinely quiet — and a check that reds a
+build on an ordinary slow week teaches people to stop reading it. Set
+`volume_tolerance: 0.25` on a table to promote it to a failure.
+
+**Counts, never values.** Row count, the structural fingerprint, and per column
+the number of nulls and distinct values. Enough for volume trends and null-rate
+drift; deliberately not enough to reconstruct a row. A hundred runs is about
+twenty-four kilobytes.
+
+**It ignores itself.** A `.gitignore` is written alongside, because committing
+it would put a small change in every pull request forever. Delete that file if
+you would rather share history across CI runners. `--no-history` turns the whole
+thing off.
+
+### Keeping a history on the web (optional)
 
 Everything above works with no account, no API key and no network. Zeyvor is a
 local tool and stays one.
 
-The one thing a local command cannot do is remember. `zeyvor check` answers a
-single question — does the data match right now — and then forgets. It cannot
-tell you a column has failed four of the last thirty runs, or that somebody
-loosened a rule last Tuesday. That needs somewhere to keep them, which means a
-server, which means an account.
+What the local history cannot do is outlive the machine it is on, or gather
+several projects into one view. A dashboard can — which is what an account is
+for, and the only thing it is for.
 
 It is opt-in per run, and off unless you ask:
 
@@ -261,7 +297,7 @@ relationships:
 
 **Relationships are checked across tables.** Give `init` more than one source and it proposes foreign keys from column names and uniqueness — deterministically, with no model involved, because a relationship is an assertion that fails builds and the model is only ever allowed to remove assertions here. `check` then measures each one with a single pushed-down anti-join: orphan rows, distinct missing keys, and whether the parent's key is still unique enough for the join not to fan out. `max_orphan_rate` exists for the soft-deleted dimension every real warehouse has somewhere.
 
-Twenty-five violation types, each with a default severity. `type_contaminated` is deliberately separate from `type_changed`: a column at 99.8% dates has *not* changed type, so equality checks pass it, and it is the case this exists to catch. Cascade suppression keeps one problem from producing five findings — a changed type silences the format, range and category clauses that follow from it.
+Twenty-six violation types, each with a default severity. `type_contaminated` is deliberately separate from `type_changed`: a column at 99.8% dates has *not* changed type, so equality checks pass it, and it is the case this exists to catch. Cascade suppression keeps one problem from producing five findings — a changed type silences the format, range and category clauses that follow from it.
 
 ## How it works
 
@@ -326,6 +362,7 @@ Every case below is a real production failure that passes conventional checks. E
 | `fk_fanout` | A parent key gained duplicates, so every join through it multiplies rows |
 | `relationship_uncheckable` | A join cannot be measured, so a green build is not evidence |
 | `stale_data` | The loader stopped: every row still valid, nothing new arriving |
+| `volume_drop` | Row count well below its recent normal — a load that half-worked |
 
 Precision is treated as seriously as recall. Five-digit numbers are *not* reported as postal codes, `11.03.2024` is *not* reported as a phone number, and a date column sprinkled with `N/A` is *not* reported for inconsistent capitalisation — because a checker that cries wolf gets uninstalled in a week.
 

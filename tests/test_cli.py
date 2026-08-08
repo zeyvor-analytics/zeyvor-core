@@ -702,3 +702,98 @@ def test_an_unreachable_database_is_still_a_usage_error(tmp_path, monkeypatch):
         encoding="utf-8",
     )
     assert main(["check"]) == EXIT_ERROR
+
+
+# ── history, and the trend it makes possible ──────────────────────────────────
+
+
+def _rows(path, count: int) -> None:
+    import csv
+
+    with open(path, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["id", "status"])
+        writer.writeheader()
+        writer.writerows({"id": i, "status": "ok"} for i in range(count))
+
+
+def test_history_accumulates_and_ignores_itself(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    _rows(tmp_path / "daily.csv", 500)
+
+    assert main(["init", "daily.csv"]) == EXIT_OK
+    for _ in range(3):
+        main(["check"])
+
+    from zeyvor import history
+
+    assert len(history.read("daily")) == 3
+    assert (tmp_path / ".zeyvor" / ".gitignore").exists(), "must not appear in a diff"
+
+
+def test_a_volume_drop_min_rows_cannot_see(tmp_path, monkeypatch, capsys):
+    """The whole reason history exists.
+
+    30,000 rows against a 50,000 baseline clears a floor of 20,000 comfortably,
+    while having lost two fifths of the day. No single run can say so.
+    """
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    _rows(tmp_path / "daily.csv", 50_000)
+
+    assert main(["init", "daily.csv"]) == EXIT_OK
+    for _ in range(4):
+        main(["check"])
+    capsys.readouterr()
+
+    _rows(tmp_path / "daily.csv", 25_000)
+    assert main(["check"]) == EXIT_OK, "a trend warns by default rather than failing"
+    out = capsys.readouterr().out
+    assert "volume_drop" in out
+    assert "below normal" in out
+
+
+def test_volume_tolerance_promotes_it_to_a_failure(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    _rows(tmp_path / "daily.csv", 50_000)
+    main(["init", "daily.csv"])
+    for _ in range(4):
+        main(["check"])
+
+    contract = tmp_path / "zeyvor.yml"
+    text = contract.read_text(encoding="utf-8").replace(
+        "    columns:", "    volume_tolerance: 0.25\n    columns:", 1
+    )
+    contract.write_text(text, encoding="utf-8")
+
+    _rows(tmp_path / "daily.csv", 25_000)
+    capsys.readouterr()
+    assert main(["check"]) == EXIT_VIOLATIONS
+    assert "volume_drop" in capsys.readouterr().out
+
+
+def test_no_history_writes_nothing_and_checks_nothing(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    _rows(tmp_path / "daily.csv", 500)
+    main(["init", "daily.csv"])
+
+    assert main(["check", "--no-history"]) == EXIT_OK
+    assert not (tmp_path / ".zeyvor").exists()
+
+
+def test_the_first_runs_never_report_a_trend(tmp_path, monkeypatch, capsys):
+    """A baseline needs several runs. Reporting on the second would make every
+    ordinary day-to-day change look like an anomaly."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    _rows(tmp_path / "daily.csv", 10_000)
+    main(["init", "daily.csv"])
+    capsys.readouterr()
+
+    # A 40% drop, but deliberately still above `min_rows` (5,000) so this test
+    # isolates the trend rather than accidentally asserting on the fixed floor.
+    _rows(tmp_path / "daily.csv", 6_000)
+    assert main(["check"]) == EXIT_OK
+    assert "volume_drop" not in capsys.readouterr().out

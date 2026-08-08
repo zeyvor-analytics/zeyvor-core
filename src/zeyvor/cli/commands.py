@@ -430,6 +430,70 @@ def _one_line(exc: Exception, limit: int = 140) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
+def _volume_findings(contract: Contract, profiles, console: Console) -> list:
+    """Row counts that fall well below their own recent normal.
+
+    The gap `min_rows` structurally cannot close. A table that usually loads
+    fifty thousand rows and today loaded thirty thousand clears a floor of two
+    thousand comfortably, having lost two fifths of the day — nothing in a
+    single run says so, because nothing in a single run knows what normal is.
+    """
+    from .. import history
+    from ..contract.violations import DEFAULT_SEVERITY, Violation
+
+    findings = []
+    for profile in profiles:
+        table = contract.tables.get(profile.name)
+        if table is None:
+            continue
+
+        past = history.read(profile.name)
+        trend = history.volume_trend(past, profile.row_count)
+        if trend is None:
+            continue
+
+        # Unset means "warn me if it looks wrong"; a number means "and fail the
+        # build past this much". The default is deliberately loose, because the
+        # first false red is what gets a check deleted.
+        threshold = table.volume_tolerance if table.volume_tolerance is not None else 0.4
+        if trend.drop <= threshold:
+            continue
+
+        severity = (
+            Severity.FAIL
+            if table.volume_tolerance is not None
+            else DEFAULT_SEVERITY[ViolationType.VOLUME_DROP]
+        )
+        findings.append(
+            Violation(
+                type=ViolationType.VOLUME_DROP,
+                table=profile.name,
+                severity=severity,
+                expected=f"about {trend.baseline:,} rows, the median of the last {trend.runs} runs",
+                found=f"{trend.current:,} rows — {trend.drop:.0%} below normal",
+                detail="Every row here may be valid. What changed is how many "
+                "arrived, which no single run can show.",
+                remedy="Check the load for a partition that did not arrive, or "
+                "set volume_tolerance if this size is expected.",
+                evidence={
+                    "rows": trend.current,
+                    "baseline": trend.baseline,
+                    "drop": round(trend.drop, 4),
+                    "runs": trend.runs,
+                },
+            )
+        )
+    return findings
+
+
+def _record_history(profiles, console: Console) -> None:
+    """Append one snapshot per table. Never raises; see history.append."""
+    from .. import history
+
+    for profile in profiles:
+        history.append(profile.name, history.snapshot_of(profile))
+
+
 def cmd_check(args, console: Console) -> int:
     contract = _load_contract(args)
     if args.warn_only:
@@ -439,6 +503,12 @@ def cmd_check(args, console: Console) -> int:
     if args.sources or getattr(args, "models", None):
         contract = _scope_to(contract, profiles)
     report = check(profiles, contract)
+
+    # Read before writing, so a run is compared against the runs before it
+    # rather than against itself.
+    if not getattr(args, "no_history", False):
+        report.violations.extend(_volume_findings(contract, profiles, console))
+        _record_history(profiles, console)
 
     # Cross-table checks come after the per-column ones, and are skipped when a
     # table is already missing: a join cannot be measured against a table that is

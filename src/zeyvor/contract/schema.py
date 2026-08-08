@@ -71,6 +71,8 @@ HEADER = """\
 # TABLE-LEVEL SETTINGS
 #   min_rows          fail if fewer rows arrive than this — catches the upstream
 #                     job that silently produced an almost-empty file
+#   volume_tolerance  how far below the recent normal the row count may fall
+#                     before it fails rather than warns. 0.4 is "40% down"
 #   source            the file or table this was measured from
 #
 # TURNING A CHECK OFF
@@ -101,6 +103,7 @@ TABLE_KEYS = {
     "source",
     "profile_fingerprint",
     "min_rows",
+    "volume_tolerance",
     "allow_new_columns",
     "allow_missing_columns",
     "on_violation",
@@ -346,11 +349,22 @@ def loads(text: str) -> Contract:
                 f"min_rows must be an integer, got {min_rows!r}{v.at(path + ('min_rows',))}"
             )
 
+        tolerance = v.number(
+            body.get("volume_tolerance"), path + ("volume_tolerance",), "volume_tolerance"
+        )
+        if tolerance is not None and not 0 < tolerance < 1:
+            raise ContractError(
+                "volume_tolerance is a fraction between 0 and 1 — 0.4 means "
+                f"'40% below normal', got {tolerance!r}"
+                f"{v.at(path + ('volume_tolerance',))}"
+            )
+
         tables[str(table_name)] = TableContract(
             name=str(table_name),
             source=str(body.get("source", "") or ""),
             profile_fingerprint=str(body.get("profile_fingerprint", "") or ""),
             min_rows=min_rows,
+            volume_tolerance=tolerance,
             allow_new_columns=bool(body.get("allow_new_columns", True)),
             allow_missing_columns=bool(body.get("allow_missing_columns", False)),
             columns=columns,
@@ -745,6 +759,8 @@ def dumps(contract: Contract, *, header: bool = True) -> str:
             body["profile_fingerprint"] = table.profile_fingerprint
         if table.min_rows is not None:
             body["min_rows"] = table.min_rows
+        if table.volume_tolerance is not None:
+            body["volume_tolerance"] = table.volume_tolerance
         if not table.allow_new_columns:
             body["allow_new_columns"] = False
         if table.allow_missing_columns:

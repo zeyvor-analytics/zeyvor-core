@@ -202,6 +202,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     check.add_argument("--fail-on-warn", action="store_true", help="Treat warnings as failures too")
     check.add_argument(
+        "--no-history",
+        action="store_true",
+        help="Do not read or write .zeyvor/history (skips volume-trend checks)",
+    )
+    check.add_argument(
         "--upload",
         action="store_true",
         help="Also send the run to your Zeyvor account, so the history survives "

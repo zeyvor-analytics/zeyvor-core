@@ -137,6 +137,22 @@ class TableContract:
     correctness check. Data legitimately changes shape; that is the point."""
 
     min_rows: int | None = None
+
+    volume_tolerance: float | None = None
+    """How far the row count may fall below its recent normal before this is a
+    *failure* rather than a warning. ``0.4`` means "40% down on the median of
+    recent runs".
+
+    `min_rows` is a fixed floor and cannot see this: a table that normally loads
+    fifty thousand rows and today loaded thirty thousand clears a floor of two
+    thousand easily, while having lost two fifths of the day. Only the
+    comparison against previous runs says anything is wrong.
+
+    Left unset, the comparison still happens and reports as a warning. Promoting
+    it to a failure is deliberate because a trend is fuzzier than a fixed bound —
+    the Monday after a holiday is genuinely quiet — and a check that reds a build
+    on an ordinary slow week teaches people to stop reading it."""
+
     allow_new_columns: bool = True
     """A new column is news, not usually a failure. Teams that need stricter
     schema control set this false."""

@@ -29,6 +29,8 @@ from .models import (
     Relationship,
     Severity,
     TableContract,
+    humanise_duration,
+    parse_duration,
 )
 
 HEADER = """\
@@ -54,6 +56,8 @@ HEADER = """\
 #   unique            no two rows may share a value, as for an id
 #   min / max         the range values must fall within. `today` moves with the
 #                     calendar rather than going stale
+#   fresh_within      how recent the newest value must be — 24h, 7d, 90m. Catches
+#                     a loader that stopped: every row still valid, none new
 #   categories        the values seen in the data
 #   categories_closed true means those are the ONLY values allowed, so anything
 #                     new fails the check
@@ -113,6 +117,7 @@ COLUMN_KEYS = {
     "categories_closed",
     "min",
     "max",
+    "fresh_within",
     "no_pii",
     "known_issues",
     "ignore",
@@ -130,6 +135,7 @@ COLUMN_KEY_ORDER = [
     "categories_closed",
     "min",
     "max",
+    "fresh_within",
     "no_pii",
     "known_issues",
     "ignore",
@@ -222,6 +228,23 @@ class _Validator:
             raise ContractError(f"{what} must be a number, got {value!r}{self.at(path)}")
         return float(value)
 
+    def duration(self, value: Any, path: tuple[str, ...], what: str) -> str | None:
+        """Validated at load, not at check.
+
+        A malformed window is a typo in a file somebody is editing by hand, and
+        catching it here means they hear about it while looking at the line —
+        rather than at 3am, from a check that could not evaluate the clause it
+        was asked to enforce.
+        """
+        if value is None:
+            return None
+        text = str(value).strip()
+        try:
+            parse_duration(text)
+        except ValueError as exc:
+            raise ContractError(f"{what}: {exc}{self.at(path)}") from None
+        return text
+
     def severity(self, value: Any, path: tuple[str, ...]) -> Severity | None:
         if value is None:
             return None
@@ -306,6 +329,9 @@ def loads(text: str) -> Contract:
                 categories_closed=bool(cbody.get("categories_closed", False)),
                 minimum=cbody.get("min"),
                 maximum=cbody.get("max"),
+                fresh_within=v.duration(
+                    cbody.get("fresh_within"), cpath + ("fresh_within",), "fresh_within"
+                ),
                 no_pii=bool(cbody.get("no_pii", False)),
                 known_issues=v.string_list(
                     cbody.get("known_issues"), cpath + ("known_issues",), "known_issues"
@@ -560,6 +586,7 @@ def _column_body(column: ColumnContract) -> dict[str, Any]:
         "formats": _Flow(column.formats) if column.formats else None,
         "nullable": column.nullable,
         "max_null_rate": column.max_null_rate,
+        "fresh_within": column.fresh_within,
         "unique": column.unique,
         "categories": _Flow(column.categories) if column.categories else None,
         "categories_closed": column.categories_closed or None,
@@ -656,6 +683,9 @@ def _plain_english(column: ColumnContract) -> str:
         if column.formats:
             shapes = " or ".join(f"'{shape}'" for shape in column.formats)
             parts.append(f"shaped like {shapes}")
+
+    if column.fresh_within:
+        parts.append(f"and updated within the last {humanise_duration(column.fresh_within)}")
 
     return ", ".join(parts) + "."
 

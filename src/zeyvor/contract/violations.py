@@ -44,6 +44,7 @@ class ViolationType(str, Enum):
     UNIQUENESS_LOST = "uniqueness_lost"
     RANGE_EXCEEDED = "range_exceeded"
     UNIT_SHIFT_SUSPECTED = "unit_shift_suspected"
+    STALE_DATA = "stale_data"
 
     # relationships between tables
     FK_ORPHANS = "fk_orphans"
@@ -73,6 +74,7 @@ DEFAULT_SEVERITY: dict[ViolationType, Severity] = {
     ViolationType.UNIQUENESS_LOST: Severity.FAIL,
     ViolationType.RANGE_EXCEEDED: Severity.FAIL,
     ViolationType.UNIT_SHIFT_SUSPECTED: Severity.FAIL,
+    ViolationType.STALE_DATA: Severity.FAIL,
     ViolationType.PII_APPEARED: Severity.FAIL,
     ViolationType.FK_ORPHANS: Severity.FAIL,
     ViolationType.FK_FANOUT: Severity.FAIL,

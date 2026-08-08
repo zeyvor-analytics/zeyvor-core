@@ -6,6 +6,8 @@ a single variable and makes the boundaries between violations explicit.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
 
 from zeyvor.contract import ColumnContract, Contract, Severity, TableContract, ViolationType, check
@@ -496,3 +498,87 @@ def test_ignore_suppresses_a_column_entirely():
     report = check(profile, contract)
     assert report.violations == []
     assert report.columns_checked == 0
+
+
+# ── freshness ─────────────────────────────────────────────────────────────────
+#
+# The mirror of `max`, and the reason both exist: `max` catches a value from the
+# future, this catches the absence of values from the present. A table whose
+# loader stopped on Tuesday violates nothing else in a contract — every row is
+# well formed, correctly typed, complete, and inside every stated range.
+
+
+def _temporal_profile(newest: str, name: str = "loaded_at"):
+    from zeyvor.profile.models import ColumnProfile, InferredType, TableProfile, TemporalStats
+
+    column = ColumnProfile(name=name, row_count=100, distinct_count=100)
+    column.inferred_type = InferredType.TIMESTAMP
+    column.temporal = TemporalStats(minimum="2026-01-01", maximum=newest)
+    return TableProfile(name="feed", row_count=100, columns=[column])
+
+
+def _fresh_contract(window: str, name: str = "loaded_at"):
+    return Contract(
+        tables={
+            "feed": TableContract(
+                name="feed",
+                columns={name: ColumnContract(name=name, type="timestamp", fresh_within=window)},
+            )
+        }
+    )
+
+
+def test_data_that_stopped_arriving_is_a_violation():
+    now = datetime(2026, 8, 10, 12, 0, tzinfo=timezone.utc)
+    report = check([_temporal_profile("2026-08-05 09:00:00")], _fresh_contract("24h"), now=now)
+
+    stale = [v for v in report.violations if v.type is ViolationType.STALE_DATA]
+    assert len(stale) == 1
+    assert "5 days old" in stale[0].found
+    assert not report.ok
+
+
+def test_recent_data_says_nothing():
+    now = datetime(2026, 8, 10, 12, 0, tzinfo=timezone.utc)
+    report = check([_temporal_profile("2026-08-10 09:00:00")], _fresh_contract("24h"), now=now)
+    assert report.ok
+
+
+def test_the_window_is_the_boundary():
+    """Exactly at the edge passes — a job that runs on the hour should not fail
+    because the check ran a second after it."""
+    now = datetime(2026, 8, 10, 12, 0, 0, tzinfo=timezone.utc)
+    on_time = check([_temporal_profile("2026-08-09 12:00:00")], _fresh_contract("24h"), now=now)
+    assert on_time.ok
+
+    late = check([_temporal_profile("2026-08-09 11:59:00")], _fresh_contract("24h"), now=now)
+    assert not late.ok
+
+
+def test_a_timezone_aware_timestamp_is_converted_not_ignored():
+    """A warehouse handing back +02:00 must not be read as two hours staler."""
+    now = datetime(2026, 8, 10, 12, 0, tzinfo=timezone.utc)
+    report = check([_temporal_profile("2026-08-10T12:30:00+02:00")], _fresh_contract("3h"), now=now)
+    assert report.ok, "10:30 UTC is 90 minutes old, well inside a 3h window"
+
+
+def test_an_unreadable_timestamp_is_skipped_rather_than_guessed():
+    """Silence beats a wrong answer here: inventing an age would either fail a
+    healthy table or, worse, pass a stopped one."""
+    now = datetime(2026, 8, 10, 12, 0, tzinfo=timezone.utc)
+    report = check([_temporal_profile("whenever")], _fresh_contract("1h"), now=now)
+    assert report.ok
+
+
+def test_a_column_with_no_window_is_never_stale():
+    now = datetime(2036, 1, 1, tzinfo=timezone.utc)
+    contract = Contract(
+        tables={
+            "feed": TableContract(
+                name="feed",
+                columns={"loaded_at": ColumnContract(name="loaded_at", type="timestamp")},
+            )
+        }
+    )
+    report = check([_temporal_profile("2026-08-05 09:00:00")], contract, now=now)
+    assert report.ok, "freshness must be opt-in, never assumed"

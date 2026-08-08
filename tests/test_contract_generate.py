@@ -502,3 +502,52 @@ def test_an_integer_column_never_gets_a_fractional_bound():
     assert contract.maximum is not None, "precondition: this column takes the range branch"
     assert contract.minimum == int(contract.minimum), f"got {contract.minimum!r}"
     assert contract.maximum == int(contract.maximum), f"got {contract.maximum!r}"
+
+
+# ── freshness is earned, not assumed ──────────────────────────────────────────
+
+
+def _stamp_column(name: str, newest_days_ago: int):
+    from datetime import date, timedelta
+
+    from zeyvor.profile.models import ColumnProfile, InferredType, TemporalStats
+
+    column = ColumnProfile(name=name, row_count=500, distinct_count=500)
+    column.inferred_type = InferredType.TIMESTAMP
+    newest = (date.today() - timedelta(days=newest_days_ago)).isoformat()
+    column.temporal = TemporalStats(minimum="2020-01-01", maximum=newest)
+    return column
+
+
+def test_a_load_stamp_that_looks_live_gets_a_freshness_clause():
+    contract = generate_column_contract(_stamp_column("loaded_at", 0))
+    assert contract.fresh_within is not None
+
+
+def test_a_real_world_date_never_gets_one():
+    """`birth_date` is decades old and perfectly healthy. Calling it stale would
+    fail a build every night on data behaving exactly as intended, which is how
+    a check gets deleted rather than fixed."""
+    assert generate_column_contract(_stamp_column("birth_date", 9000)).fresh_within is None
+    assert generate_column_contract(_stamp_column("contract_end", 40)).fresh_within is None
+
+
+def test_a_historical_table_gets_no_clause_even_with_a_load_stamp_name():
+    """The name says load stamp, but nothing has arrived in a month — this is
+    an archive, and asserting it should refresh would fail on the next run."""
+    assert generate_column_contract(_stamp_column("updated_at", 30)).fresh_within is None
+
+
+def test_the_window_leaves_slack_for_a_late_job():
+    """One observed cadence is one sample. A window with no headroom fails the
+    first time a nightly job runs an hour late."""
+    from zeyvor.contract.models import parse_duration
+
+    contract = generate_column_contract(_stamp_column("ingested_at", 1))
+    assert parse_duration(contract.fresh_within) > 86400
+
+
+def test_freshness_generation_can_be_switched_off():
+    policy = RangePolicy(freshness_from_load_stamps=False)
+    contract = generate_column_contract(_stamp_column("loaded_at", 0), policy=policy)
+    assert contract.fresh_within is None

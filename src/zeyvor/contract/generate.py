@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from ..profile.models import InferredType, Observation, TableProfile
 from .models import (
@@ -175,6 +175,16 @@ class RangePolicy:
     still missing and far too shaky to close, while one in ten thousand is 0.01%
     and no reason to hold back."""
 
+    freshness_from_load_stamps: bool = True
+    """Whether `init` may write a `fresh_within` clause on load-timestamp
+    columns. Off means freshness is opt-in by hand, which is the right setting
+    for a warehouse full of historical tables."""
+
+    freshness_max_observed_age_days: int = 7
+    """How stale the newest row may already be and still earn a freshness
+    clause. Past this the table is history rather than a live feed, and
+    asserting it should refresh would fail on the next run."""
+
     max_numeric_categories: int = 12
     """Tighter than `max_categories`, because a number is only a label when there
     are very few of them. Real code sets are small — a Likert scale, a status
@@ -257,6 +267,65 @@ def _floor_rows(row_count: int, policy: RangePolicy) -> int:
     2,000, not 2,170.
     """
     return max(1, int(_round_down_1sf(row_count / policy.row_headroom)))
+
+
+# Names that describe when a *row* was written, rather than when a thing in the
+# world happened. Only these get a freshness clause: `birth_date` and
+# `contract_end` are legitimately years old and must never be called stale.
+LOAD_STAMP_HINTS = (
+    "updated",
+    "modified",
+    "loaded",
+    "ingested",
+    "inserted",
+    "synced",
+    "refreshed",
+    "extracted",
+    "last_seen",
+    "_at",
+    "timestamp",
+)
+
+
+def _looks_like_load_stamp(name: str) -> bool:
+    lowered = name.lower()
+    return any(hint in lowered for hint in LOAD_STAMP_HINTS)
+
+
+def _freshness_for(column, policy: RangePolicy) -> str | None:
+    """How recent this column's newest value should stay — or None to say nothing.
+
+    Deliberately hard to earn, because a wrong freshness clause is worse than a
+    missing one. Missing, and a stopped pipeline goes unnoticed; wrong, and the
+    build fails every night on a table that is behaving exactly as intended,
+    which is how a check gets deleted rather than fixed.
+
+    Two conditions, and both are required. The *name* has to describe when the
+    row was written rather than when something happened in the world — a
+    `birth_date` is decades old and perfectly healthy. And the data has to look
+    live already: if the newest row is a month old at the moment the contract is
+    written, this is a historical table, and asserting it should refresh daily
+    would fail on the very next run.
+    """
+    if not policy.freshness_from_load_stamps:
+        return None
+    if not _looks_like_load_stamp(column.name):
+        return None
+
+    newest = _date_part(column.temporal.maximum) if column.temporal else None
+    if not newest:
+        return None
+    try:
+        age_days = (date.today() - date.fromisoformat(newest)).days
+    except ValueError:
+        return None
+    if age_days < 0 or age_days > policy.freshness_max_observed_age_days:
+        return None
+
+    # Rounded up to a whole day and doubled, on the same reasoning as every other
+    # generated bound: the observed cadence is one sample, and a window with no
+    # slack fails the first time a job runs an hour late.
+    return f"{max(1, age_days + 1) * 2}d"
 
 
 def _looks_like_pii_column(name: str) -> bool:
@@ -528,6 +597,7 @@ def generate_column_contract(
             contract.maximum = "today"
         else:
             contract.maximum = _date_part(column.temporal.maximum)
+        contract.fresh_within = _freshness_for(column, policy)
 
     # ── privacy ───────────────────────────────────────────────────────────────
     if not column.pii_signals and not _looks_like_pii_column(column.name):

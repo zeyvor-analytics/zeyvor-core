@@ -22,7 +22,14 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from ..profile.models import InferredType, Observation, TableProfile
-from .models import ColumnContract, Contract, Severity, TableContract
+from .models import (
+    ColumnContract,
+    Contract,
+    Severity,
+    TableContract,
+    humanise_duration,
+    parse_duration,
+)
 from .violations import (
     DEFAULT_SEVERITY,
     Report,
@@ -160,6 +167,57 @@ def _date_part(iso: str | None) -> str | None:
     return iso.split("T")[0].split(" ")[0]
 
 
+def _parse_moment(text: str) -> datetime | None:
+    """A profiled timestamp as something subtractable, or None.
+
+    Warehouses hand back a dozen spellings of the same instant, and a freshness
+    check that only understood one of them would silently never fire — the worst
+    possible failure for a check whose entire job is noticing silence. So this
+    is permissive about the input and strict about the outcome: anything it
+    cannot read returns None and the clause is skipped rather than guessed at.
+
+    A date with no time is read as midnight, which makes a daily-partitioned
+    table look up to a day staler than it is. That direction is deliberate: for
+    a `7d` window it is noise, and erring the other way would mean a table that
+    stopped yesterday still reads as fresh.
+    """
+    raw = str(text).strip()
+    if not raw:
+        return None
+    cleaned = raw.replace("Z", "+00:00")
+    try:
+        moment = datetime.fromisoformat(cleaned)
+    except ValueError:
+        # Fall back to the date alone: `2026-08-04 14:22:19.418 UTC` and friends
+        # are common enough that giving up entirely would be worse.
+        date_only = _date_part(raw)
+        if not date_only:
+            return None
+        try:
+            moment = datetime.fromisoformat(date_only)
+        except ValueError:
+            return None
+    # `now` is UTC-aware, so this has to be too — subtracting a naive datetime
+    # from an aware one raises rather than returning a wrong answer, which at
+    # least fails loudly, but only at check time on somebody's real table.
+    #
+    # A timestamp with no zone is read as UTC. Most warehouses store exactly
+    # that, and the alternative — guessing the host's local zone — moves the
+    # answer by hours in a direction nothing can verify.
+    if moment.tzinfo is None:
+        return moment.replace(tzinfo=timezone.utc)
+    return moment.astimezone(timezone.utc)
+
+
+def _describe_age(seconds: float) -> str:
+    """`93600` → `1 day`. Rounded down, because "2 days" reads as at least two."""
+    for size, name in ((86400, "day"), (3600, "hour"), (60, "minute")):
+        if seconds >= size:
+            count = int(seconds // size)
+            return f"{count} {name}{'' if count == 1 else 's'}"
+    return "under a minute"
+
+
 class _Checker:
     def __init__(self, contract: Contract, now: datetime) -> None:
         self.contract = contract
@@ -257,6 +315,7 @@ class _Checker:
         self._check_presence(out, column_profile, column, table)
         self._check_uniqueness(out, column_profile, column, table)
         self._check_range(out, column_profile, column, table)
+        self._check_freshness(out, column_profile, column, table)
         self._check_pii(out, column_profile, column, table)
         self._check_observations(out, column_profile, column, table)
 
@@ -460,6 +519,51 @@ class _Checker:
             detail="Downstream joins on this column will fan out.",
             remedy="Deduplicate at the source, or drop unique: true.",
             evidence={"duplicates": duplicates, "distinct": profile.distinct_count},
+        )
+
+    def _check_freshness(self, out, profile, column, table) -> None:
+        """Has anything new arrived lately?
+
+        The mirror of `max`, and the reason both exist: `max` catches a value
+        from the future, this catches the absence of values from the present. A
+        table whose loader stopped on Tuesday violates nothing else in the file
+        — every row is well formed, correctly typed, complete, and inside every
+        stated range. It is simply not growing. No other clause asks *when* the
+        newest row arrived, so without this the most common pipeline failure is
+        also the most completely silent one.
+        """
+        if not column.fresh_within:
+            return
+        if (column.type or "") not in TEMPORAL or not profile.temporal:
+            return
+
+        newest_text = profile.temporal.maximum
+        if not newest_text:
+            return
+        newest = _parse_moment(newest_text)
+        if newest is None:
+            return
+
+        window = parse_duration(column.fresh_within)
+        age = (self.now - newest).total_seconds()
+        if age <= window:
+            return
+
+        self.add(
+            out,
+            ViolationType.STALE_DATA,
+            table,
+            column,
+            expected=f"a value from within the last {humanise_duration(column.fresh_within)}",
+            found=f"newest is {_describe_age(age)} old ({_date_part(newest_text)})",
+            detail="Nothing here is malformed — the rows that exist are fine. "
+            "They just stopped arriving, which no other check can see.",
+            remedy="Check the job that writes this table; it has probably been failing quietly.",
+            evidence={
+                "newest": newest_text,
+                "age_seconds": int(age),
+                "window_seconds": window,
+            },
         )
 
     def _check_range(self, out, profile, column, table) -> None:

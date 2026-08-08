@@ -19,11 +19,43 @@ clause defaults to None, meaning unchecked.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
 CONTRACT_SCHEMA_VERSION = 1
+
+_DURATION = re.compile(r"^\s*(\d+)\s*([mhdw])\s*$", re.IGNORECASE)
+_DURATION_SECONDS = {"m": 60, "h": 3600, "d": 86400, "w": 604800}
+
+
+def parse_duration(value: str) -> int:
+    """`24h` → 86400. Raises ValueError on anything else.
+
+    A deliberately tiny grammar. Accepting ISO-8601 durations or bare integers
+    would mean guessing a unit, and a freshness window guessed wrong in either
+    direction is worse than one that refused to parse: too long silently stops
+    catching the thing it exists for, too short pages somebody at 4am.
+    """
+    match = _DURATION.match(str(value))
+    if not match:
+        raise ValueError(f"'{value}' is not a duration. Use a number and a unit: 90m, 24h, 7d, 2w.")
+    amount, unit = match.groups()
+    seconds = int(amount) * _DURATION_SECONDS[unit.lower()]
+    if seconds <= 0:
+        raise ValueError("A freshness window must be longer than zero.")
+    return seconds
+
+
+def humanise_duration(value: str) -> str:
+    """`24h` → `24 hours`, for a sentence rather than a clause."""
+    match = _DURATION.match(str(value))
+    if not match:
+        return str(value)
+    amount, unit = match.groups()
+    name = {"m": "minute", "h": "hour", "d": "day", "w": "week"}[unit.lower()]
+    return f"{amount} {name}{'' if amount == '1' else 's'}"
 
 
 class Severity(str, Enum):
@@ -71,6 +103,17 @@ class ColumnContract:
     maximum: Any = None
     """Numbers, ISO dates, or the tokens ``today``/``now`` resolved at check
     time. An approved envelope, never a snapshot of last run's extremes."""
+
+    fresh_within: str | None = None
+    """How recent the newest value has to be — ``24h``, ``7d``, ``90m``.
+
+    `maximum` bounds the future; this bounds the past, and they catch opposite
+    failures. A table whose loader stopped last Tuesday holds nothing invalid:
+    every row is well formed, correctly typed, complete, and inside every range
+    the contract states. It is simply not being added to any more. Nothing else
+    in this file can see that, because nothing else asks *when* the newest row
+    arrived — which makes a stopped pipeline the most thoroughly silent failure
+    there is."""
 
     no_pii: bool = False
     known_issues: list[str] = field(default_factory=list)

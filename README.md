@@ -155,6 +155,24 @@ zeyvor init "postgres://user:pw@host/db#public.orders" # live table
 zeyvor init "bigquery://project#dataset.orders"        # warehouse
 ```
 
+**Freshness — the failure with no evidence.** `max` bounds the future; `fresh_within`
+bounds the past, and they catch opposite things. A table whose loader stopped on
+Tuesday violates nothing else in a contract: every row is well formed, correctly
+typed, complete, and inside every stated range. It has simply stopped growing,
+and no other clause asks *when* the newest row arrived.
+
+```yaml
+loaded_at:
+  type: timestamp
+  fresh_within: 24h    # the newest value must be under a day old
+```
+
+`init` writes this only when the column *name* says it records when a row was
+written — `updated_at`, `loaded_at`, `ingested_at` — **and** the data already
+looks live. A `birth_date` is decades old and perfectly healthy; asserting it
+should refresh nightly would fail a build every night on data behaving exactly
+as intended, which is how a check gets deleted rather than fixed.
+
 **A whole schema at once.** A `*` in the table part asks the database what it
 holds, because naming two hundred tables on a command line is not a workflow
 anybody sustains. System schemas are never profiled, so `#*` means your tables,
@@ -243,7 +261,7 @@ relationships:
 
 **Relationships are checked across tables.** Give `init` more than one source and it proposes foreign keys from column names and uniqueness — deterministically, with no model involved, because a relationship is an assertion that fails builds and the model is only ever allowed to remove assertions here. `check` then measures each one with a single pushed-down anti-join: orphan rows, distinct missing keys, and whether the parent's key is still unique enough for the join not to fan out. `max_orphan_rate` exists for the soft-deleted dimension every real warehouse has somewhere.
 
-Twenty-four violation types, each with a default severity. `type_contaminated` is deliberately separate from `type_changed`: a column at 99.8% dates has *not* changed type, so equality checks pass it, and it is the case this exists to catch. Cascade suppression keeps one problem from producing five findings — a changed type silences the format, range and category clauses that follow from it.
+Twenty-five violation types, each with a default severity. `type_contaminated` is deliberately separate from `type_changed`: a column at 99.8% dates has *not* changed type, so equality checks pass it, and it is the case this exists to catch. Cascade suppression keeps one problem from producing five findings — a changed type silences the format, range and category clauses that follow from it.
 
 ## How it works
 
@@ -307,6 +325,7 @@ Every case below is a real production failure that passes conventional checks. E
 | `fk_orphans` | Child rows point at parents that are no longer there |
 | `fk_fanout` | A parent key gained duplicates, so every join through it multiplies rows |
 | `relationship_uncheckable` | A join cannot be measured, so a green build is not evidence |
+| `stale_data` | The loader stopped: every row still valid, nothing new arriving |
 
 Precision is treated as seriously as recall. Five-digit numbers are *not* reported as postal codes, `11.03.2024` is *not* reported as a phone number, and a date column sprinkled with `N/A` is *not* reported for inconsistent capitalisation — because a checker that cries wolf gets uninstalled in a week.
 

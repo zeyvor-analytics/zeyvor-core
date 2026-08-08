@@ -147,8 +147,17 @@ twenty-four kilobytes.
 
 **It ignores itself.** A `.gitignore` is written alongside, because committing
 it would put a small change in every pull request forever. Delete that file if
-you would rather share history across CI runners. `--no-history` turns the whole
-thing off.
+you would rather carry history in the repository itself. `--no-history` turns
+the whole thing off.
+
+**It needs a machine that persists.** A cron box or a long-lived worker
+accumulates history naturally. A fresh CI runner does not: the directory is
+built and destroyed inside one job, so the count never passes the three runs a
+trend needs and `volume_drop` can never fire. The GitHub Action caches the
+directory between runs to fix this, but a cache is evicted after a week of
+disuse and is scoped per branch, so treat local trends as best-effort. A missing
+baseline means no trend reported — never a wrong one. For a baseline that is
+genuinely durable, `--upload` keeps it server-side.
 
 ### Keeping a history on the web (optional)
 

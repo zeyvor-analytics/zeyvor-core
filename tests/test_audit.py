@@ -354,6 +354,39 @@ def test_every_flag_the_readme_shows_actually_exists():
     assert not unknown, f"README documents flags that do not exist: {sorted(unknown)}"
 
 
+def test_every_flag_the_action_passes_actually_exists():
+    """The composite action is the only caller nobody can fix in place.
+
+    A README typo costs a stranger one confused minute. A renamed flag in
+    action.yml breaks the check in every repository pinned to @v1 at once, on
+    their data, in their CI — and the error surfaces as exit code 2 in someone
+    else's build log, which is the last place we would hear about it.
+    """
+    import pathlib
+    import re
+
+    action = pathlib.Path(__file__).resolve().parent.parent / "action.yml"
+    _, flags = _cli_surface()
+
+    seen = set()
+    for line in action.read_text(encoding="utf-8").splitlines():
+        # Only lines that build or issue a zeyvor command. The `gh api` calls
+        # further down carry --jq and --paginate, and one of them mentions
+        # zeyvor inside a jq filter, so matching on the word alone would drag
+        # GitHub's CLI surface into this assertion.
+        if not (
+            'ARGS="$ARGS' in line
+            or 'SHOW="--' in line
+            or re.search(r"(?<![\w-])zeyvor\s+(?:[a-z][a-z-]*|--)", line)
+        ):
+            continue
+        seen.update(re.findall(r"(?<![\w-])(--[a-z][a-z-]+)", line))
+
+    assert seen, "no zeyvor flags found in action.yml — has it moved?"
+    unknown = seen - flags
+    assert not unknown, f"action.yml passes flags that do not exist: {sorted(unknown)}"
+
+
 def test_any_stated_python_floor_matches_pyproject():
     """`pip install` on an unsupported Python fails with a resolver error that
     names no version, so a stated floor has to be the real one.

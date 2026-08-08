@@ -65,6 +65,22 @@ runs:
       with:
         python-version: ${{ inputs.python-version }}
 
+    # Volume trends compare against previous runs, and a runner is destroyed
+    # after every job — so without this the history is always empty and
+    # volume_drop can never fire in CI. The key is unique per run because a
+    # cache entry cannot be overwritten; restore-keys takes the newest match.
+    #
+    # Best-effort by design: caches are evicted after a week of disuse and are
+    # scoped per branch, so a baseline can vanish and rebuild. A missing
+    # baseline means no trend, never a wrong one.
+    - name: Restore the volume baseline
+      uses: actions/cache@v4
+      with:
+        path: .zeyvor/history
+        key: zeyvor-history-${{ inputs.contract }}-${{ github.run_id }}
+        restore-keys: |
+          zeyvor-history-${{ inputs.contract }}-
+
     # A composite action rather than a Docker one: installing two wheels takes
     # seconds, where pulling an image would dominate the runtime of the check
     # itself.
@@ -96,11 +112,16 @@ runs:
 
         # Three renderings of one run: the log for a human scrolling, JSON for
         # the outputs, markdown for the summary and the comment.
+        #
+        # Only the first records history. The other two are the same moment
+        # rendered differently, and letting each append would write every job
+        # three times — a hundred-entry history covering thirty-three real
+        # runs, and a "median of the last 6 runs" measured over two.
         zeyvor check $ARGS ${{ inputs.sources }}
         EXIT=$?
 
-        zeyvor check $ARGS ${{ inputs.sources }} --format json  --quiet > zeyvor-report.json  2>/dev/null
-        zeyvor check $ARGS ${{ inputs.sources }} --format markdown $SHOW --quiet > zeyvor-report.md 2>/dev/null
+        zeyvor check $ARGS ${{ inputs.sources }} --no-history --format json  --quiet > zeyvor-report.json  2>/dev/null
+        zeyvor check $ARGS ${{ inputs.sources }} --no-history --format markdown $SHOW --quiet > zeyvor-report.md 2>/dev/null
 
         {
           echo "exit-code=$EXIT"

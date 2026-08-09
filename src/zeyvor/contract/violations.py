@@ -46,6 +46,7 @@ class ViolationType(str, Enum):
     RANGE_EXCEEDED = "range_exceeded"
     UNIT_SHIFT_SUSPECTED = "unit_shift_suspected"
     STALE_DATA = "stale_data"
+    RULE_VIOLATED = "rule_violated"
 
     # relationships between tables
     FK_ORPHANS = "fk_orphans"
@@ -76,6 +77,9 @@ DEFAULT_SEVERITY: dict[ViolationType, Severity] = {
     ViolationType.RANGE_EXCEEDED: Severity.FAIL,
     ViolationType.UNIT_SHIFT_SUSPECTED: Severity.FAIL,
     ViolationType.STALE_DATA: Severity.FAIL,
+    # Written by a person rather than inferred from a profile, so it is a
+    # statement of intent rather than a guess, and it fails like one.
+    ViolationType.RULE_VIOLATED: Severity.FAIL,
     ViolationType.PII_APPEARED: Severity.FAIL,
     ViolationType.FK_ORPHANS: Severity.FAIL,
     ViolationType.FK_FANOUT: Severity.FAIL,

@@ -304,9 +304,24 @@ relationships:
 
 **Tolerances everywhere.** `nullable: false` has `max_null_rate` beside it; `defaults: {on_violation: warn}` turns the whole contract into a report so a team can adopt it without breaking their pipeline on day one; `ignore: true` retires a check while keeping the intent visible in review.
 
+**Rules compare columns to each other.** Everything above looks at one column on its own, so nothing catches a row that shipped before it was ordered: both dates are real, neither is null, each sits inside its own range. A `rules:` block on a table says what has to hold *between* columns of the same row.
+
+```yaml
+    rules:
+      - shipped_at >= ordered_at
+      - abs(total - (subtotal - discount)) <= 0.01
+      - status = 'shipped' implies shipped_at is not null
+```
+
+Comparisons, arithmetic, `and`/`or`/`not`, `is null`, `implies`, `abs()` and `length()` — a grammar Zeyvor parses and compiles per engine, not SQL pasted into a query. That keeps the contract a description rather than an executable artifact, and keeps a contract written against Postgres working on BigQuery. Every rule on a table is measured in one query.
+
+A rule you wrote **fails** by default, unlike the generated thresholds, because it is a statement of intent rather than a guess; `max_violation_rate: 0.001` tolerates a known trickle. **A null makes a rule unknown, not broken** — say `is not null` when you mean to assert about nulls, or nulls would be reported by every rule that happens to touch the column, on top of `nullable`.
+
+`init` never writes a rule that is switched on. It suggests a few, commented out, and only ones that held for every row it measured — a rule nobody agreed to is how a team learns to distrust the whole file.
+
 **Relationships are checked across tables.** Give `init` more than one source and it proposes foreign keys from column names and uniqueness — deterministically, with no model involved, because a relationship is an assertion that fails builds and the model is only ever allowed to remove assertions here. `check` then measures each one with a single pushed-down anti-join: orphan rows, distinct missing keys, and whether the parent's key is still unique enough for the join not to fan out. `max_orphan_rate` exists for the soft-deleted dimension every real warehouse has somewhere.
 
-Twenty-six violation types, each with a default severity. `type_contaminated` is deliberately separate from `type_changed`: a column at 99.8% dates has *not* changed type, so equality checks pass it, and it is the case this exists to catch. Cascade suppression keeps one problem from producing five findings — a changed type silences the format, range and category clauses that follow from it.
+Twenty-seven violation types, each with a default severity. `type_contaminated` is deliberately separate from `type_changed`: a column at 99.8% dates has *not* changed type, so equality checks pass it, and it is the case this exists to catch. Cascade suppression keeps one problem from producing five findings — a changed type silences the format, range and category clauses that follow from it.
 
 ## How it works
 
@@ -372,6 +387,7 @@ Every case below is a real production failure that passes conventional checks. E
 | `relationship_uncheckable` | A join cannot be measured, so a green build is not evidence |
 | `stale_data` | The loader stopped: every row still valid, nothing new arriving |
 | `volume_drop` | Row count well below its recent normal — a load that half-worked |
+| `rule_violated` | Two columns stopped agreeing: shipped before ordered, a total that no longer adds up |
 
 Precision is treated as seriously as recall. Five-digit numbers are *not* reported as postal codes, `11.03.2024` is *not* reported as a phone number, and a date column sprinkled with `N/A` is *not* reported for inconsistent capitalisation — because a checker that cries wolf gets uninstalled in a week.
 

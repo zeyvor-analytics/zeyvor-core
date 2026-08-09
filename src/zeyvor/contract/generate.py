@@ -15,6 +15,7 @@ what stops a model from inventing a rule that breaks someone's build.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 
@@ -326,6 +327,95 @@ def _freshness_for(column, policy: RangePolicy) -> str | None:
     # generated bound: the observed cadence is one sample, and a window with no
     # slack fails the first time a job runs an hour late.
     return f"{max(1, age_days + 1) * 2}d"
+
+
+# Cross-column rule suggestions.
+#
+# A rule fails builds, so nothing here is ever written active — `init` emits
+# these commented out, and they do nothing until a person reads one and agrees.
+# That is the whole design: the value is in raising a question the generated
+# contract otherwise cannot ask, not in guessing the answer.
+#
+# Two gates, both required, matching how freshness is generated. The name has
+# to imply an ordering, *and* the ordering has to hold for every row measured.
+# Names alone would suggest rules that are simply false; data alone would
+# suggest coincidences, because in a small sample plenty of unrelated date
+# pairs happen to be ordered.
+EARLIER_TOKENS = frozenset(
+    {
+        "created",
+        "ordered",
+        "placed",
+        "started",
+        "start",
+        "opened",
+        "requested",
+        "submitted",
+        "registered",
+        "issued",
+        "began",
+        "begin",
+        "birth",
+        "hired",
+    }
+)
+LATER_TOKENS = frozenset(
+    {
+        "shipped",
+        "delivered",
+        "completed",
+        "closed",
+        "ended",
+        "end",
+        "finished",
+        "resolved",
+        "approved",
+        "returned",
+        "paid",
+        "settled",
+        "expired",
+        "expires",
+        "expiry",
+        "cancelled",
+        "canceled",
+        "terminated",
+        "due",
+    }
+)
+
+MAX_SUGGESTIONS_PER_TABLE = 5
+
+
+def _tokens(name: str) -> set[str]:
+    """Split a column name into words, so `end` does not match inside `vendor`."""
+    return {token for token in re.split(r"[^a-z0-9]+", name.lower()) if token}
+
+
+def suggest_rules(table) -> list[str]:
+    """Candidate rules for a table, to be verified before anything is written.
+
+    Only temporal orderings. Arithmetic between money columns is the other
+    obvious family and is deliberately left out: `total = subtotal - discount`
+    is right until the day someone adds tax or a currency, and a suggestion
+    that is usually right is exactly the kind that gets uncommented without
+    being thought about.
+    """
+    temporal = [
+        column.name
+        for column in table.columns.values()
+        if (column.type or "") in ("date", "timestamp")
+    ]
+    if len(temporal) < 2:
+        return []
+
+    suggestions: list[str] = []
+    for earlier in temporal:
+        for later in temporal:
+            if earlier == later:
+                continue
+            if _tokens(earlier) & EARLIER_TOKENS and _tokens(later) & LATER_TOKENS:
+                suggestions.append(f"{later} >= {earlier}")
+    return suggestions[:MAX_SUGGESTIONS_PER_TABLE]
 
 
 def _looks_like_pii_column(name: str) -> bool:
@@ -679,4 +769,5 @@ __all__ = [
     "generate_column_contract",
     "generate_table_contract",
     "generate_contract",
+    "suggest_rules",
 ]

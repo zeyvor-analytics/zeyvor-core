@@ -20,6 +20,7 @@ from typing import Any
 
 import yaml
 
+from ..rules.grammar import RuleError, validate_rule
 from .models import (
     CONTRACT_SCHEMA_VERSION,
     Cardinality,
@@ -29,6 +30,7 @@ from .models import (
     Relationship,
     Severity,
     TableContract,
+    TableRule,
     humanise_duration,
     parse_duration,
 )
@@ -74,6 +76,19 @@ HEADER = """\
 #   volume_tolerance  how far below the recent normal the row count may fall
 #                     before it fails rather than warns. 0.4 is "40% down"
 #   source            the file or table this was measured from
+#   rules             things that must be true BETWEEN columns of the same row.
+#                     Everything above checks one column on its own, so nothing
+#                     catches a row that shipped before it was ordered — both
+#                     dates are real, neither is null, each is in range:
+#                       rules:
+#                         - shipped_at >= ordered_at
+#                         - abs(total - (subtotal - discount)) <= 0.01
+#                         - status = 'shipped' implies shipped_at is not null
+#                     Write comparisons, + - * /, and/or/not, is null, implies,
+#                     abs() and length(). A rule you wrote fails the build; add
+#                     `max_violation_rate: 0.01` to tolerate a known trickle.
+#                     A null makes a rule unknown, not broken — say `is not
+#                     null` when you mean to assert about nulls.
 #
 # TURNING A CHECK OFF
 #   Delete any line to stop checking it. Set `ignore: true` on a column to retire
@@ -108,6 +123,16 @@ TABLE_KEYS = {
     "allow_missing_columns",
     "on_violation",
     "columns",
+    "rules",
+}
+RULE_KEYS = {
+    "expr",
+    "name",
+    "means",
+    "max_violation_rate",
+    "known_issues",
+    "ignore",
+    "on_violation",
 }
 COLUMN_KEYS = {
     "means",
@@ -368,6 +393,7 @@ def loads(text: str) -> Contract:
             allow_new_columns=bool(body.get("allow_new_columns", True)),
             allow_missing_columns=bool(body.get("allow_missing_columns", False)),
             columns=columns,
+            rules=_rules(v, body.get("rules"), path, list(columns)),
             on_violation=v.severity(body.get("on_violation"), path + ("on_violation",)),
         )
 
@@ -379,6 +405,90 @@ def loads(text: str) -> Contract:
         tables=tables,
         relationships=_relationships(v, raw.get("relationships"), tables),
     )
+
+
+def _rules(v: _Validator, raw: Any, path: tuple[str, ...], columns: list[str]) -> list[TableRule]:
+    """Parse a table's `rules:` block, rejecting anything that will not run.
+
+    Validation happens here rather than at check time on purpose. A rule that
+    names a column with a typo is a mistake somebody can fix in ten seconds
+    while looking at the file; the same mistake surfacing an hour later as a
+    warning in CI costs a great deal more, and by then the build is green and
+    nobody is looking.
+    """
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise ContractError(f"rules must be a list{v.at(path + ('rules',))}")
+
+    rules: list[TableRule] = []
+    for index, entry in enumerate(raw):
+        rpath = path + ("rules", str(index))
+        # The line index only tracks mapping keys, so a list position has no
+        # line of its own. Pointing at the `rules:` key is coarse, but a
+        # confidently wrong line number is worse than an honest general one —
+        # it sends the reader to a rule that is fine.
+        where = v.at(path + ("rules",))
+
+        # A bare string is the common case and deserves to stay short:
+        # `rules: ['shipped_at >= ordered_at']`.
+        body = {"expr": entry} if isinstance(entry, str) else v.mapping(entry, rpath, "rule")
+        v.check_keys(body, RULE_KEYS, rpath)
+
+        expr = body.get("expr")
+        if not isinstance(expr, str) or not expr.strip():
+            raise ContractError(f"a rule needs an expr{where}")
+
+        try:
+            validate_rule(expr, columns)
+        except RuleError as exc:
+            raise ContractError(f"{exc}{where}") from exc
+
+        rate = v.number(
+            body.get("max_violation_rate"),
+            rpath + ("max_violation_rate",),
+            "max_violation_rate",
+        )
+        if rate is not None and not 0 <= rate < 1:
+            raise ContractError(
+                "max_violation_rate is a fraction between 0 and 1 — 0.01 means "
+                f"'up to 1% of rows may break it', got {rate!r}{where}"
+            )
+
+        rules.append(
+            TableRule(
+                expr=expr.strip(),
+                name=str(body["name"]) if body.get("name") is not None else None,
+                means=str(body["means"]) if body.get("means") is not None else None,
+                max_violation_rate=rate,
+                known_issues=v.string_list(
+                    body.get("known_issues"), rpath + ("known_issues",), "known_issues"
+                ),
+                ignore=bool(body.get("ignore", False)),
+                on_violation=v.severity(body.get("on_violation"), rpath + ("on_violation",)),
+            )
+        )
+
+    return rules
+
+
+def _rule_body(rule: TableRule) -> Any:
+    """Emit a rule, staying a bare string when nothing else was said about it."""
+    body: dict[str, Any] = {}
+    if rule.means is not None:
+        body["means"] = rule.means
+    if rule.name is not None:
+        body["name"] = rule.name
+    body["expr"] = rule.expr
+    if rule.max_violation_rate is not None:
+        body["max_violation_rate"] = rule.max_violation_rate
+    if rule.known_issues:
+        body["known_issues"] = list(rule.known_issues)
+    if rule.ignore:
+        body["ignore"] = True
+    if rule.on_violation is not None:
+        body["on_violation"] = rule.on_violation.value
+    return rule.expr if list(body) == ["expr"] else body
 
 
 def _split_target(text: Any, what: str, where: str) -> tuple[str, str]:
@@ -741,6 +851,36 @@ def _annotate_columns(text: str, contract: Contract) -> str:
     return "\n".join(out)
 
 
+def _annotate_suggestions(text: str, contract: Contract) -> str:
+    """Write each table's suggested rules above its columns, commented out.
+
+    Anchored on the `columns:` line rather than appended to the table body,
+    because a suggestion nobody sees is worth nothing and the bottom of a
+    hundred-column table is where things go to be unread.
+
+    Commented rather than active on purpose: a rule fails builds, and one that
+    arrived without anybody agreeing to it is how a team learns to distrust the
+    whole file.
+    """
+    blocks = [table.suggested_rules for table in contract.tables.values()]
+    if not any(blocks):
+        return text
+
+    out: list[str] = []
+    index = 0
+    for line in text.split("\n"):
+        if line.strip() == "columns:" and line.startswith("    ") and not line.startswith("     "):
+            if index < len(blocks) and blocks[index]:
+                out.append("    # Suggested rules. Each one held for every row measured, but")
+                out.append("    # holding today is not a promise — read them, keep what you mean,")
+                out.append("    # and delete the rest. Uncomment to start enforcing:")
+                out.append("    # rules:")
+                out.extend(f"    #   - {expr}" for expr in blocks[index])
+            index += 1
+        out.append(line)
+    return "\n".join(out)
+
+
 def dumps(contract: Contract, *, header: bool = True) -> str:
     payload: dict[str, Any] = {"version": contract.version}
     if contract.generated_by:
@@ -770,6 +910,8 @@ def dumps(contract: Contract, *, header: bool = True) -> str:
         body["columns"] = {
             column_name: _column_body(column) for column_name, column in table.columns.items()
         }
+        if table.rules:
+            body["rules"] = [_rule_body(rule) for rule in table.rules]
         tables[name] = body
     payload["tables"] = tables
 
@@ -788,6 +930,7 @@ def dumps(contract: Contract, *, header: bool = True) -> str:
         indent=2,
     )
     text = _annotate_columns(text, contract)
+    text = _annotate_suggestions(text, contract)
     return (HEADER + "\n" + text) if header else text
 
 

@@ -129,6 +129,50 @@ class ColumnContract:
 
 
 @dataclass
+class TableRule:
+    """One thing that must hold *between* the columns of a single row.
+
+    Every other check in the contract looks at a column on its own, so nothing
+    sees a row where `shipped_at` precedes `ordered_at`: both are real
+    timestamps, neither is null, each is inside its own range. The row is the
+    right shape and the wrong meaning.
+
+    Unlike almost everything else here, a rule is written by a person rather
+    than generated from a profile. That is why it fails by default: a threshold
+    Zeyvor inferred is a guess worth a warning, and a sentence somebody typed on
+    purpose is a statement of intent.
+    """
+
+    expr: str
+    """The rule itself, in the small language `zeyvor.rules.grammar` accepts —
+    kept as the text the author wrote so the contract round-trips unchanged."""
+
+    name: str | None = None
+    """Short handle for the rule, used to address it in output. Falls back to
+    the expression, which is usually readable enough to serve as its own name."""
+
+    means: str | None = None
+    """Plain English for whoever reviews the pull request. A rule is the one
+    clause here that cannot be inferred from the data, so the reason it exists
+    lives only in somebody's head unless it is written down."""
+
+    max_violation_rate: float | None = None
+    """Share of rows allowed to break the rule. None means none of them.
+
+    Same reasoning as `max_orphan_rate`: every real warehouse has a handful of
+    rows from 2019 that nobody will ever fix, and a rule that cannot be relaxed
+    is a rule that gets deleted outright rather than kept and bounded."""
+
+    known_issues: list[str] = field(default_factory=list)
+    ignore: bool = False
+    on_violation: Severity | None = None
+
+    @property
+    def label(self) -> str:
+        return self.name or self.expr
+
+
+@dataclass
 class TableContract:
     name: str
     source: str = ""
@@ -159,7 +203,14 @@ class TableContract:
 
     allow_missing_columns: bool = False
     columns: dict[str, ColumnContract] = field(default_factory=dict)
+    rules: list[TableRule] = field(default_factory=list)
     on_violation: Severity | None = None
+
+    suggested_rules: list[str] = field(default_factory=list)
+    """Rules `init` thinks might be true, written out commented so they do
+    nothing. Never parsed back — reading a contract always leaves this empty,
+    because once the file exists the comments are the author's to keep or
+    delete, and regenerating them would undo that decision every run."""
 
     def column(self, name: str) -> ColumnContract | None:
         return self.columns.get(name)

@@ -797,3 +797,135 @@ def test_the_first_runs_never_report_a_trend(tmp_path, monkeypatch, capsys):
     _rows(tmp_path / "daily.csv", 6_000)
     assert main(["check"]) == EXIT_OK
     assert "volume_drop" not in capsys.readouterr().out
+
+
+# ── cross-column rules, end to end ────────────────────────────────────────────
+
+
+def _orders(path, rows: list[tuple]) -> None:
+    import csv
+
+    with open(path, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["order_id", "ordered_at", "shipped_at", "subtotal", "discount", "total"])
+        writer.writerows(rows)
+
+
+GOOD_ORDERS = [
+    (1, "2026-03-01", "2026-03-03", "100.00", "10.00", "90.00"),
+    (2, "2026-03-02", "2026-03-05", "200.00", "0.00", "200.00"),
+    (3, "2026-03-03", "2026-03-04", "50.00", "5.00", "45.00"),
+]
+
+
+def _with_rules(path, *rules: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    block = "    rules:\n" + "".join(f"      - {rule}\n" for rule in rules)
+    path.write_text(text.replace("    columns:", block + "    columns:", 1), encoding="utf-8")
+
+
+def test_a_row_that_shipped_before_it_was_ordered_is_caught(tmp_path, monkeypatch, capsys):
+    """Every column here is individually valid, which is the entire point: both
+    dates are real dates, neither is null, and each is inside its own range."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    _orders(tmp_path / "orders.csv", GOOD_ORDERS)
+
+    assert main(["init", "orders.csv"]) == EXIT_OK
+    _with_rules(tmp_path / "zeyvor.yml", "shipped_at >= ordered_at")
+    assert main(["check"]) == EXIT_OK
+
+    broken = list(GOOD_ORDERS)
+    broken[1] = (2, "2026-03-02", "2026-02-20", "200.00", "0.00", "200.00")
+    _orders(tmp_path / "orders.csv", broken)
+    capsys.readouterr()
+
+    assert main(["check"]) == EXIT_VIOLATIONS
+    assert "rule_violated" in capsys.readouterr().out
+
+
+def test_money_that_stops_adding_up_is_caught(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    rows = list(GOOD_ORDERS)
+    rows[2] = (3, "2026-03-03", "2026-03-04", "50.00", "5.00", "55.00")
+    _orders(tmp_path / "orders.csv", rows)
+
+    assert main(["init", "orders.csv"]) == EXIT_OK
+    _with_rules(tmp_path / "zeyvor.yml", "abs(total - (subtotal - discount)) <= 0.01")
+    assert main(["check"]) == EXIT_VIOLATIONS
+    assert "rule_violated" in capsys.readouterr().out
+
+
+def test_a_null_makes_a_rule_unknown_rather_than_broken(tmp_path, monkeypatch):
+    """Otherwise every rule would double as a nullability check, and one missing
+    value would be reported by every rule that happens to touch the column."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    rows = list(GOOD_ORDERS) + [(4, "2026-03-04", "", "75.00", "0.00", "75.00")]
+    _orders(tmp_path / "orders.csv", rows)
+
+    assert main(["init", "orders.csv"]) == EXIT_OK
+    _with_rules(tmp_path / "zeyvor.yml", "shipped_at >= ordered_at")
+    assert main(["check"]) == EXIT_OK
+
+
+def test_a_budget_lets_a_known_trickle_through(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    rows = list(GOOD_ORDERS) + [(4, "2026-03-04", "2026-02-01", "75.00", "0.00", "75.00")]
+    _orders(tmp_path / "orders.csv", rows)
+
+    assert main(["init", "orders.csv"]) == EXIT_OK
+    _with_rules(
+        tmp_path / "zeyvor.yml",
+        "{expr: 'shipped_at >= ordered_at', max_violation_rate: 0.3}",
+    )
+    assert main(["check"]) == EXIT_OK
+
+
+def test_one_broken_rule_does_not_take_the_others_down_with_it(tmp_path, monkeypatch, capsys):
+    """The rules share a query for speed. A rule naming a dropped column fails
+    that whole query, and blaming every other rule for it points the reader at
+    lines that are fine."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    rows = list(GOOD_ORDERS)
+    rows[2] = (3, "2026-03-03", "2026-03-04", "50.00", "5.00", "55.00")
+    _orders(tmp_path / "orders.csv", rows)
+
+    assert main(["init", "orders.csv"]) == EXIT_OK
+    _with_rules(
+        tmp_path / "zeyvor.yml",
+        "shipped_at >= ordered_at",
+        "abs(total - (subtotal - discount)) <= 0.01",
+    )
+    # Drop the column one rule depends on, leaving the other rule untouched.
+    import csv
+
+    source = tmp_path / "orders.csv"
+    with open(source, newline="", encoding="utf-8") as handle:
+        kept = [[cell for index, cell in enumerate(row) if index != 2] for row in csv.reader(handle)]
+    with open(source, "w", newline="", encoding="utf-8") as handle:
+        csv.writer(handle).writerows(kept)
+    capsys.readouterr()
+
+    main(["check"])
+    out = capsys.readouterr().out
+    assert "1 of 3 rows break it" in out, "the healthy rule must report its own verdict"
+
+
+def test_init_suggests_rules_without_enforcing_them(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    _orders(tmp_path / "orders.csv", GOOD_ORDERS)
+
+    assert main(["init", "orders.csv"]) == EXIT_OK
+    text = (tmp_path / "zeyvor.yml").read_text(encoding="utf-8")
+    assert "# Suggested rules" in text
+    assert "#   - shipped_at >= ordered_at" in text
+    # Commented out means inert, even against data that would break them.
+    broken = list(GOOD_ORDERS)
+    broken[0] = (1, "2026-03-01", "2026-01-01", "100.00", "10.00", "90.00")
+    _orders(tmp_path / "orders.csv", broken)
+    assert main(["check"]) == EXIT_OK

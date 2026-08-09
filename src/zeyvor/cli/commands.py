@@ -247,6 +247,7 @@ def _init(args, console: Console) -> int:
             )
 
     contract = generate_contract(profiles, describer=describer)
+    _suggest_rules(args, contract, profiles, console)
 
     # Foreign keys, when there is more than one table to join. Rules only — no
     # model is asked, because a relationship is an assertion that fails builds and
@@ -425,6 +426,128 @@ def _measure_relationships(
     return measurements
 
 
+def _suggest_rules(
+    args, contract: Contract, profiles: list[TableProfile], console: Console
+) -> None:
+    """Propose cross-column rules, keeping only the ones the data supports.
+
+    A name that implies an ordering is a question, not an answer, so every
+    candidate is measured before it is written down. Anything that fails even
+    once is dropped silently: a suggestion the reader has to evaluate and reject
+    costs more attention than it saves, and a file full of them is a file people
+    stop reading.
+
+    Best-effort throughout. This runs after a contract has already been built,
+    and no failure here is worth losing that — a source that will not reopen
+    just means no suggestions.
+    """
+    from ..contract.generate import suggest_rules
+    from ..contract.models import TableRule
+    from ..rules import measure_rules
+    from ..sources import resolve_source
+
+    sources = _table_sources(args, contract, profiles)
+
+    for name, table in contract.tables.items():
+        candidates = suggest_rules(table)
+        source = sources.get(name)
+        if not candidates or not source:
+            continue
+
+        types = {column.name: column.type for column in table.columns.values()}
+        resolved = None
+        try:
+            resolved = resolve_source(
+                source,
+                memory_limit=getattr(args, "memory_limit", None),
+                threads=getattr(args, "threads", None),
+            )
+            measurements = measure_rules(
+                resolved.engine,
+                resolved.relation,
+                name,
+                [TableRule(expr=expr) for expr in candidates],
+                types,
+            )
+        except Exception:  # noqa: BLE001 - a suggestion is a nicety, never a failure
+            continue
+        finally:
+            if resolved is not None:
+                resolved.close()
+
+        held = [
+            measurement.rule.expr
+            for measurement in measurements
+            if measurement.measured and measurement.judged > 0 and measurement.broken == 0
+        ]
+        table.suggested_rules = held
+        if held:
+            console.step(f"suggesting {len(held)} rule(s) for {name}, commented out")
+
+
+def _measure_table_rules(args, contract: Contract, profiles: list[TableProfile], console: Console):
+    """Measure every table's cross-column rules, one query per table.
+
+    Unlike a relationship, a rule never leaves its own table, so this needs one
+    connection per table rather than one per pair. Everything else is the same
+    shape: a source that will not open becomes an uncheckable finding rather
+    than an exception, because one unreadable table should not abandon the rest.
+    """
+    from ..rules import RuleMeasurement, measure_rules
+    from ..sources import resolve_source
+
+    tables = {
+        name: table
+        for name, table in contract.tables.items()
+        if any(not rule.ignore for rule in table.rules)
+    }
+    if not tables:
+        return []
+
+    profiled = {profile.name for profile in profiles}
+    sources = _table_sources(args, contract, profiles)
+    measurements = []
+
+    for name, table in tables.items():
+        # A table that was not profiled this run is out of scope — `--models`
+        # or a wildcard that matched less than the contract holds.
+        if name not in profiled:
+            continue
+
+        source = sources.get(name)
+        if not source:
+            measurements.extend(
+                RuleMeasurement(rule=rule, table=name, error=f"no source recorded for '{name}'")
+                for rule in table.rules
+                if not rule.ignore
+            )
+            continue
+
+        types = {column.name: column.type for column in table.columns.values()}
+        console.step(f"checking {len(table.rules)} rule(s) on {name}")
+        resolved = None
+        try:
+            resolved = resolve_source(
+                source,
+                memory_limit=getattr(args, "memory_limit", None),
+                threads=getattr(args, "threads", None),
+            )
+            measurements.extend(
+                measure_rules(resolved.engine, resolved.relation, name, table.rules, types)
+            )
+        except (EngineError, FileNotFoundError, ValueError) as exc:
+            measurements.extend(
+                RuleMeasurement(rule=rule, table=name, error=_one_line(exc))
+                for rule in table.rules
+                if not rule.ignore
+            )
+        finally:
+            if resolved is not None:
+                resolved.close()
+
+    return measurements
+
+
 def _one_line(exc: Exception, limit: int = 140) -> str:
     text = " ".join(str(exc).split())
     return text if len(text) <= limit else text[: limit - 1] + "…"
@@ -509,6 +632,16 @@ def cmd_check(args, console: Console) -> int:
     if not getattr(args, "no_history", False):
         report.violations.extend(_volume_findings(contract, profiles, console))
         _record_history(profiles, console)
+
+    # Cross-column rules sit between the two: they need a query rather than a
+    # profile, but never leave their own table. Skipped when the table is gone,
+    # for the same reason relationships are.
+    if not report.has(ViolationType.TABLE_MISSING):
+        from ..rules import check_rules
+
+        rule_measurements = _measure_table_rules(args, contract, profiles, console)
+        if rule_measurements:
+            report.violations.extend(check_rules(contract, rule_measurements))
 
     # Cross-table checks come after the per-column ones, and are skipped when a
     # table is already missing: a join cannot be measured against a table that is

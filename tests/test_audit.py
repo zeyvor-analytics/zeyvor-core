@@ -387,6 +387,41 @@ def test_every_flag_the_action_passes_actually_exists():
     assert not unknown, f"action.yml passes flags that do not exist: {sorted(unknown)}"
 
 
+def test_the_readme_does_not_claim_an_old_version_of_itself():
+    """The README is the PyPI landing page, so a stale version is the first
+    thing a stranger reads.
+
+    This one had actually rotted: the status line still said v0.1 at version
+    0.7.0 — through a credential fix, two features and six releases. The same
+    drift on the website was caught and fixed weeks earlier, and it survived
+    here for exactly one reason, which is that nothing asserted it.
+
+    Deliberately narrow. Only a `vX.Y.Z` written as a claim about this package
+    counts; the action tag `@v1` and version numbers belonging to other things
+    (`actions/checkout@v4`, `duckdb>=0.10.0`) are not claims about this one.
+    """
+    import pathlib
+    import re
+
+    root = pathlib.Path(__file__).resolve().parent.parent
+    version = re.search(
+        r'^version\s*=\s*"([^"]+)"',
+        (root / "pyproject.toml").read_text(encoding="utf-8"),
+        re.M,
+    )
+    assert version, "pyproject has no version"
+    current = version.group(1)
+
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    claimed = set(re.findall(r"(?<![\w/@-])v(\d+\.\d+\.\d+)\b", readme))
+
+    stale = sorted(claimed - {current})
+    assert not stale, (
+        f"README claims version(s) {stale} but this package is {current}. "
+        "A version in prose is documentation, and documentation nobody owns goes stale."
+    )
+
+
 def test_any_stated_python_floor_matches_pyproject():
     """`pip install` on an unsupported Python fails with a resolver error that
     names no version, so a stated floor has to be the real one.

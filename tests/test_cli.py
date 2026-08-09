@@ -905,7 +905,9 @@ def test_one_broken_rule_does_not_take_the_others_down_with_it(tmp_path, monkeyp
 
     source = tmp_path / "orders.csv"
     with open(source, newline="", encoding="utf-8") as handle:
-        kept = [[cell for index, cell in enumerate(row) if index != 2] for row in csv.reader(handle)]
+        kept = [
+            [cell for index, cell in enumerate(row) if index != 2] for row in csv.reader(handle)
+        ]
     with open(source, "w", newline="", encoding="utf-8") as handle:
         csv.writer(handle).writerows(kept)
     capsys.readouterr()

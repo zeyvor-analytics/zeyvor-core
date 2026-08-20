@@ -398,9 +398,41 @@ python -m venv .venv && .venv/bin/pip install -e '.[dev]'
 .venv/bin/python -m pytest
 ```
 
-471 tests, no network access required. Regenerate fixtures with `python tests/fixtures/generate.py`.
+733 tests, no network access required. Regenerate fixtures with `python tests/fixtures/generate.py`.
 
 Patterns are tested by executing them inside DuckDB rather than Python's `re`, which verifies both correctness and RE2 compatibility — the property that lets the same expression run on BigQuery too.
+
+### Recall, measured rather than asserted
+
+Every threshold in `contract/generate.py` carries a comment justifying it, and
+until recently every one of those numbers was chosen by reasoning about what
+ought to work. `tests/mutations.py` replaces the reasoning with a measurement.
+
+It takes known-clean data, breaks it in one specific realistic way — an epoch
+swap, dollars becoming cents, two percent type contamination, a loader that
+stopped, two columns that stopped agreeing — and names the finding that should
+result. `tests/harness.py` then runs the real `init` → `check` sequence against
+each one, in a subprocess, and records what came back.
+
+```bash
+PYTHONPATH=tests:src python tests/harness.py
+```
+
+Current result: **23 of 23 breakages caught, exercising 21 of the 27 finding
+types, with no single cause producing more than two findings beyond the
+expected one.**
+
+That last number matters as much as the first. A checker that catches
+everything and reports nine findings per cause is one people learn to skim, and
+skimming is how the real finding gets missed. Cascade suppression exists to
+keep it near zero; nothing verified that it worked until this harness existed.
+
+Two honest limits. Six finding types are not exercised yet — the three
+foreign-key checks, `table_missing`, `volume_drop` and
+`categories_unverifiable` — because they need more than one table or more than
+one run, and the harness currently does neither. And this measures *recall*
+only: whether real, unbroken data produces findings it should not is a separate
+question, needing a corpus of datasets nobody tampered with.
 
 <details>
 <summary>Troubleshooting: <code>pip list</code> shows zeyvor but <code>import zeyvor</code> fails (macOS)</summary>

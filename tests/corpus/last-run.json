@@ -10,6 +10,7 @@
       "null_rate_exceeded",
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -21,6 +22,7 @@
     "split": [
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -30,6 +32,7 @@
     "columns": 8,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -39,6 +42,14 @@
     "columns": 17,
     "same_data": [],
     "split": [],
+    "shuffled": [
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -48,6 +59,7 @@
     "columns": 2,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -57,6 +69,9 @@
     "columns": 4,
     "same_data": [],
     "split": [],
+    "shuffled": [
+      "range_exceeded"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -68,6 +83,7 @@
     "split": [
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -78,6 +94,9 @@
     "same_data": [],
     "split": [
       "null_words_appeared",
+      "null_words_appeared"
+    ],
+    "shuffled": [
       "null_words_appeared"
     ],
     "skipped": "",
@@ -95,6 +114,12 @@
       "new_category",
       "new_category"
     ],
+    "shuffled": [
+      "category_disappeared",
+      "category_disappeared",
+      "category_disappeared",
+      "new_category"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -108,6 +133,7 @@
       "range_exceeded",
       "unit_shift_suspected"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -121,6 +147,7 @@
       "nullability_violated",
       "nullability_violated"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -137,6 +164,7 @@
       "new_category",
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -146,6 +174,7 @@
     "columns": 4,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -158,6 +187,7 @@
       "null_rate_exceeded",
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -169,6 +199,7 @@
     "split": [
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -182,6 +213,9 @@
       "range_exceeded",
       "range_exceeded"
     ],
+    "shuffled": [
+      "null_rate_exceeded"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -192,6 +226,9 @@
     "same_data": [],
     "split": [
       "range_exceeded",
+      "range_exceeded"
+    ],
+    "shuffled": [
       "range_exceeded"
     ],
     "skipped": "",
@@ -206,6 +243,10 @@
       "new_category",
       "new_category"
     ],
+    "shuffled": [
+      "category_disappeared",
+      "category_disappeared"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -215,6 +256,7 @@
     "columns": 11,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -230,6 +272,7 @@
       "range_exceeded",
       "unit_shift_suspected"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -242,6 +285,7 @@
       "format_changed",
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -255,6 +299,9 @@
       "new_category",
       "new_category"
     ],
+    "shuffled": [
+      "type_contaminated"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -266,6 +313,7 @@
     "split": [
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -275,6 +323,7 @@
     "columns": 4,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -284,6 +333,7 @@
     "columns": 4,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -293,6 +343,9 @@
     "columns": 3,
     "same_data": [],
     "split": [],
+    "shuffled": [
+      "null_rate_exceeded"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -302,6 +355,7 @@
     "columns": 6,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -323,6 +377,7 @@
       "range_exceeded",
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -332,6 +387,7 @@
     "columns": 9,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -341,6 +397,7 @@
     "columns": 9,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -350,6 +407,7 @@
     "columns": 4,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -364,6 +422,7 @@
       "range_exceeded",
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -378,6 +437,7 @@
       "new_category",
       "new_category"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -387,6 +447,7 @@
     "columns": 10,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "only 28 rows, too few to split",
     "error": ""
   },
@@ -396,6 +457,7 @@
     "columns": 11,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -408,6 +470,7 @@
       "excel_serial_suspected",
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -417,6 +480,9 @@
     "columns": 5,
     "same_data": [],
     "split": [],
+    "shuffled": [
+      "category_disappeared"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -428,6 +494,7 @@
     "split": [
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -439,6 +506,7 @@
     "split": [
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -450,6 +518,7 @@
     "split": [
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -459,6 +528,7 @@
     "columns": 36,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -468,6 +538,7 @@
     "columns": 1,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -477,6 +548,12 @@
     "columns": 12,
     "same_data": [],
     "split": [],
+    "shuffled": [
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -486,6 +563,7 @@
     "columns": 1,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -510,6 +588,17 @@
       "type_contaminated",
       "type_contaminated"
     ],
+    "shuffled": [
+      "category_disappeared",
+      "category_disappeared",
+      "new_category",
+      "new_category",
+      "new_category",
+      "null_words_appeared",
+      "null_words_appeared",
+      "type_contaminated",
+      "type_contaminated"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -523,6 +612,10 @@
       "type_changed",
       "type_changed"
     ],
+    "shuffled": [
+      "type_changed",
+      "type_changed"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -532,6 +625,7 @@
     "columns": 5,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -546,6 +640,7 @@
       "new_category",
       "new_category"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -556,6 +651,12 @@
     "same_data": [],
     "split": [
       "range_exceeded",
+      "type_contaminated",
+      "type_contaminated",
+      "type_contaminated"
+    ],
+    "shuffled": [
+      "type_contaminated",
       "type_contaminated",
       "type_contaminated",
       "type_contaminated"
@@ -571,6 +672,7 @@
     "split": [
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -594,6 +696,7 @@
       "range_exceeded",
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -603,6 +706,7 @@
     "columns": 2,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -617,6 +721,7 @@
       "range_exceeded",
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -635,6 +740,7 @@
       "new_category",
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -644,6 +750,7 @@
     "columns": 6,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -653,6 +760,9 @@
     "columns": 11,
     "same_data": [],
     "split": [
+      "category_disappeared"
+    ],
+    "shuffled": [
       "category_disappeared"
     ],
     "skipped": "",
@@ -666,6 +776,9 @@
     "split": [
       "range_exceeded"
     ],
+    "shuffled": [
+      "nullability_violated"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -676,6 +789,9 @@
     "same_data": [],
     "split": [
       "range_exceeded",
+      "range_exceeded"
+    ],
+    "shuffled": [
       "range_exceeded"
     ],
     "skipped": "",
@@ -691,6 +807,10 @@
       "new_category",
       "range_exceeded"
     ],
+    "shuffled": [
+      "category_disappeared",
+      "new_category"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -703,6 +823,7 @@
       "category_disappeared",
       "new_category"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -715,6 +836,7 @@
       "category_disappeared",
       "new_category"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -724,6 +846,7 @@
     "columns": 1,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -736,6 +859,7 @@
       "range_exceeded",
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -745,6 +869,7 @@
     "columns": 7,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -755,6 +880,10 @@
     "same_data": [],
     "split": [
       "type_changed",
+      "type_changed",
+      "type_changed"
+    ],
+    "shuffled": [
       "type_changed",
       "type_changed"
     ],
@@ -777,6 +906,7 @@
       "type_changed",
       "type_changed"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -786,6 +916,7 @@
     "columns": 17,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -795,6 +926,9 @@
     "columns": 21,
     "same_data": [],
     "split": [],
+    "shuffled": [
+      "mixed_boolean_encoding"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -806,6 +940,10 @@
     "split": [
       "range_exceeded"
     ],
+    "shuffled": [
+      "type_contaminated",
+      "type_contaminated"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -815,6 +953,7 @@
     "columns": 7,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -829,6 +968,9 @@
       "new_category",
       "type_changed"
     ],
+    "shuffled": [
+      "null_rate_exceeded"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -842,6 +984,7 @@
       "format_changed",
       "new_category"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -851,6 +994,11 @@
     "columns": 5,
     "same_data": [],
     "split": [
+      "range_exceeded"
+    ],
+    "shuffled": [
+      "category_disappeared",
+      "new_category",
       "range_exceeded"
     ],
     "skipped": "",
@@ -865,6 +1013,9 @@
       "category_disappeared",
       "new_category"
     ],
+    "shuffled": [
+      "range_exceeded"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -874,6 +1025,7 @@
     "columns": 61,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -890,6 +1042,11 @@
       "new_category",
       "new_category"
     ],
+    "shuffled": [
+      "category_disappeared",
+      "new_category",
+      "new_category"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -899,6 +1056,7 @@
     "columns": 6,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -910,6 +1068,9 @@
     "split": [
       "type_contaminated"
     ],
+    "shuffled": [
+      "type_contaminated"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -919,6 +1080,11 @@
     "columns": 7,
     "same_data": [],
     "split": [],
+    "shuffled": [
+      "category_disappeared",
+      "new_category",
+      "range_exceeded"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -933,6 +1099,11 @@
       "null_rate_exceeded",
       "range_exceeded"
     ],
+    "shuffled": [
+      "category_disappeared",
+      "category_disappeared",
+      "new_category"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -945,6 +1116,7 @@
       "category_disappeared",
       "new_category"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -954,6 +1126,7 @@
     "columns": 3,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -963,6 +1136,7 @@
     "columns": 2,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -974,6 +1148,10 @@
     "split": [
       "category_disappeared"
     ],
+    "shuffled": [
+      "category_disappeared",
+      "nullability_violated"
+    ],
     "skipped": "",
     "error": ""
   },
@@ -983,6 +1161,7 @@
     "columns": 6,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -992,6 +1171,7 @@
     "columns": 2,
     "same_data": [],
     "split": [],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -1007,6 +1187,7 @@
       "range_exceeded",
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -1026,6 +1207,7 @@
       "new_category",
       "new_category"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -1037,6 +1219,7 @@
     "split": [
       "excel_serial_suspected"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   },
@@ -1049,6 +1232,7 @@
       "format_changed",
       "range_exceeded"
     ],
+    "shuffled": [],
     "skipped": "",
     "error": ""
   }

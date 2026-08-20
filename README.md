@@ -427,6 +427,33 @@ everything and reports nine findings per cause is one people learn to skim, and
 skimming is how the real finding gets missed. Cascade suppression exists to
 keep it near zero; nothing verified that it worked until this harness existed.
 
+### False positives, measured the same way
+
+Recall is half the question. The failure people actually abandon a tool over is
+being told a hundred things are wrong when nothing is, so
+[`tests/corpus/`](tests/corpus/) runs `init` and `check` across ninety real
+public datasets that nobody tampered with.
+
+```bash
+python tests/corpus/runner.py
+```
+
+| | |
+|---|---|
+| contract checked against the data it was generated from | **89/89 clean** |
+| contract on the first half, checked against the second | 55/89 flagged |
+| the same split, shuffled first | 29/89 flagged — **32.6%** |
+
+The third row is the honest false-positive figure. The second is higher because
+a sequential split is a split in time for most datasets, so much of what it
+flags is real change the tool is supposed to report; shuffling removes that, and
+twenty-six of the fifty-five fall silent.
+
+The first row was **83/89 on the first run**. Those six failures were three real
+bugs — a negative ceiling padded downward, a decimal column contracted as whole
+numbers, and type contamination ignoring `known_issues` — none of which any
+fixture could have caught, because no fixture had a negative number in it.
+
 Two honest limits. Six finding types are not exercised yet — the three
 foreign-key checks, `table_missing`, `volume_drop` and
 `categories_unverifiable` — because they need more than one table or more than

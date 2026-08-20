@@ -32,6 +32,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+import random
 import shutil
 import subprocess
 import sys
@@ -51,6 +52,10 @@ CACHE = os.path.join(REPO, ".zeyvor-corpus")
 # be evidence of nothing rather than evidence of precision.
 MIN_ROWS_FOR_SPLIT = 40
 
+# Fixed, so the false-positive number is reproducible rather than a different
+# figure every time somebody runs it.
+SHUFFLE_SEED = 20260819
+
 
 @dataclass
 class Result:
@@ -62,7 +67,11 @@ class Result:
     """Stage A. Anything here is a bug."""
 
     split_findings: tuple[str, ...] = ()
-    """Stage B. An upper bound on false positives, not a verdict."""
+    """Stage B, sequential halves. Mixes genuine drift with noise."""
+
+    shuffled_findings: tuple[str, ...] = ()
+    """Stage C, random halves. Both sides are drawn from the same distribution,
+    so a finding here is much closer to a true false positive."""
 
     skipped: str = ""
     error: str = ""
@@ -183,6 +192,32 @@ def run_one(entry: dict) -> Result:
         later = _zeyvor(["check", "--format", "json", "--quiet", "--no-history"], work)
         split = _findings(later)
         result.split_findings = () if split is None else split
+
+        # ── Stage C: the same split, but random ───────────────────────────────
+        #
+        # A sequential split is a time split for most real datasets, so a finding
+        # there may be genuine drift — a stock price that rose, a category
+        # introduced in March — which the tool is supposed to report. Shuffling
+        # first draws both halves from one distribution, so anything that fires
+        # is sampling noise rather than a real change. The gap between the two
+        # numbers is how much of Stage B was the tool doing its job.
+        shuffled = list(rows)
+        random.Random(SHUFFLE_SEED).shuffle(shuffled)
+
+        shutil.rmtree(work, ignore_errors=True)
+        work = tempfile.mkdtemp(prefix="zvcorpus_")
+        target = os.path.join(work, "data.csv")
+
+        _write_rows(target, header, shuffled[:middle])
+        born = _zeyvor(["init", "data.csv", "--no-ai"], work)
+        if born.returncode != 0:
+            result.error = f"shuffled init failed: {born.stderr.strip()[:160]}"
+            return result
+
+        _write_rows(target, header, shuffled[middle:])
+        other = _zeyvor(["check", "--format", "json", "--quiet", "--no-history"], work)
+        found_shuffled = _findings(other)
+        result.shuffled_findings = () if found_shuffled is None else found_shuffled
         return result
     except subprocess.TimeoutExpired:
         return Result(name, result.rows, result.columns, error="timed out")
@@ -205,6 +240,11 @@ def report(results: list[Result]) -> str:
     types_b: Counter = Counter()
     for r in noisy:
         types_b.update(r.split_findings)
+
+    shuffled_noisy = [r for r in split_ran if r.shuffled_findings]
+    types_c: Counter = Counter()
+    for r in shuffled_noisy:
+        types_c.update(r.shuffled_findings)
 
     lines = [
         "",
@@ -249,6 +289,31 @@ def report(results: list[Result]) -> str:
         for kind, count in types_b.most_common():
             lines.append(f"      {kind:<28} {count}")
 
+    lines += [
+        "",
+        "  STAGE C — the same split, but shuffled first",
+        "  " + "─" * 72,
+        "  Both halves now come from one distribution, so nothing here is real",
+        "  drift. This is the closest thing to a true false-positive rate.",
+        "",
+        f"    silent         {len(split_ran) - len(shuffled_noisy)}/{len(split_ran)}",
+        f"    with findings  {len(shuffled_noisy)}",
+    ]
+    if split_ran:
+        rate_c = len(shuffled_noisy) / len(split_ran) * 100
+        lines.append(f"    false-positive rate  {rate_c:.1f}%")
+    if types_c:
+        lines.append("")
+        for kind, count in types_c.most_common():
+            lines.append(f"      {kind:<28} {count}")
+    if split_ran:
+        drift = len(noisy) - len(shuffled_noisy)
+        lines += [
+            "",
+            f"  {drift} of the {len(noisy)} datasets flagged in Stage B go quiet once the",
+            "  rows are shuffled — those were real changes over the file, caught.",
+        ]
+
     if failed:
         lines += ["", "  failures:"]
         for r in failed[:10]:
@@ -277,6 +342,7 @@ if __name__ == "__main__":
                     "columns": r.columns,
                     "same_data": list(r.same_data_findings),
                     "split": list(r.split_findings),
+                    "shuffled": list(r.shuffled_findings),
                     "skipped": r.skipped,
                     "error": r.error,
                 }

@@ -551,3 +551,70 @@ def test_freshness_generation_can_be_switched_off():
     policy = RangePolicy(freshness_from_load_stamps=False)
     contract = generate_column_contract(_stamp_column("loaded_at", 0), policy=policy)
     assert contract.fresh_within is None
+
+
+# ── generated bounds must contain the data they came from ─────────────────────
+
+
+@pytest.mark.parametrize(
+    "low,high",
+    [
+        (-124.7, -72.6),  # longitude across the continental US
+        (-40.0, -5.0),  # a winter temperature series
+        (-9500.0, -12.0),  # a deficit, or a depth below sea level
+        (-10.0, 55.0),  # straddling zero
+        (0.0, 740.0),  # the ordinary positive case
+        (19.99, 19.99),  # a single repeated value
+        (-1.0, 0.0),  # a ceiling of exactly zero
+    ],
+)
+def test_a_padded_range_always_contains_what_was_observed(low, high):
+    """The invariant the whole tool rests on, at the level of one clause.
+
+    A generated contract has to pass against the data it was generated from.
+    `_pad_upper` multiplied by the headroom regardless of sign, which widens a
+    positive ceiling and *lowers* a negative one — so a longitude column topping
+    out at -72.6 was written down as `max: -140` and failed immediately on its
+    own rows. Every dataset with a negative measurement was affected, and the
+    fixtures never caught it because none of them had one.
+
+    Found by running init and check across ninety public datasets.
+    """
+    from zeyvor.contract.generate import DEFAULT_RANGE_POLICY, _pad_lower, _pad_upper
+
+    ceiling = _pad_upper(high, DEFAULT_RANGE_POLICY)
+    floor = _pad_lower(low, DEFAULT_RANGE_POLICY, high)
+
+    assert ceiling >= high, f"ceiling {ceiling} sits below the observed maximum {high}"
+    assert floor <= low, f"floor {floor} sits above the observed minimum {low}"
+
+
+def test_a_column_holding_decimals_is_never_contracted_as_whole_numbers():
+    """The second half of the same invariant, found the same way.
+
+    Type inference calls a column `integer` on a large majority, but the check
+    side accepts *only* integers under an integer clause — `float` is the type
+    that accepts both. So a measurement column with four decimal values in
+    sixteen hundred rows was contracted as whole numbers and immediately
+    reported as `type_contaminated` against the rows it was generated from.
+
+    The profiler already treats int-alongside-float as compatible and declines
+    to call it a mixture. This asserts the contract writer agrees.
+    """
+    from zeyvor.contract.generate import generate_column_contract
+    from zeyvor.profile.models import ColumnProfile
+    from zeyvor.profile.types import InferredType
+
+    column = ColumnProfile(
+        name="free sulfur dioxide",
+        row_count=1599,
+        null_count=0,
+        distinct_count=60,
+        inferred_type=InferredType.INTEGER,
+        type_mixture={"integer": 0.997, "float": 0.003},
+    )
+    contract = generate_column_contract(column)
+    assert contract.type == "float", (
+        "a column containing decimals must not be contracted as whole numbers, "
+        "or the contract fails against its own data"
+    )

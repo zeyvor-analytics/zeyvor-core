@@ -366,6 +366,22 @@ class _Checker:
         self._add_contamination(out, profile, column, table, contracted)
 
     def _add_contamination(self, out, profile, column, table, contracted: str) -> None:
+        # A mixture the contract already admits to is not news. `init` records
+        # `mixed_types` in `known_issues` for exactly this — a stock export with
+        # one row where the date column holds "11:34" is dirty on the day the
+        # contract is written, and re-reporting it every run is how a finding
+        # becomes furniture. Every other observation-derived finding already
+        # honours `known_issues`; this one did not, so a contract generated from
+        # slightly dirty data failed against the very rows it came from.
+        #
+        # The cost is the same one `known_issues` carries everywhere else: an
+        # accepted mixture that later grows is not re-flagged. A wholesale flip
+        # is still caught, because `type_changed` fires before this is reached.
+        #
+        # Found by running init and check across ninety public datasets.
+        if Observation.MIXED_TYPES.value in set(column.known_issues):
+            return
+
         share, offending = _contamination(contracted, profile.type_mixture)
         if share < CONTAMINATION_FLOOR or not offending:
             return

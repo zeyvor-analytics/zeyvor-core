@@ -237,7 +237,16 @@ def _pad_upper(value: float, policy: RangePolicy) -> float:
     # figure quietly widened the headroom the policy documents: a cholesterol
     # maximum of 564 doubled to 1128 and then rounded to 2000, which is 3.5x the
     # observed value, not 2x. The bound stays a readable round number either way.
-    padded = _round_up_2sf(value * policy.numeric_headroom)
+    #
+    # Headroom on a ceiling means *upward*, and multiplying only achieves that
+    # above zero. A longitude topping out at -72.6 was multiplied to -145.2 and
+    # written down as `max: -140`, a ceiling below the data it was generated
+    # from — so every contract over a negative column failed on its own data.
+    # `_pad_lower` had the mirrored branch from the start; this one never did.
+    # Found by running init and check over ninety public datasets.
+    headroom = policy.numeric_headroom
+    widened = value * headroom if value >= 0 else value / headroom
+    padded = _round_up_2sf(widened)
     return int(padded) if float(padded).is_integer() else padded
 
 
@@ -624,6 +633,21 @@ def generate_column_contract(
         return contract
 
     contract.type = column.inferred_type.value
+
+    # An integer clause is falsified by a single decimal, because `integer`
+    # accepts only integers while `float` accepts both. Inference calls a column
+    # integer on a large majority, so a measurement column with four decimals in
+    # sixteen hundred rows was written down as `integer` and then reported as
+    # `type_contaminated` against the very rows it was generated from.
+    #
+    # The profiler already treats int-alongside-float as a compatible pair and
+    # declines to call it a mixture; this is the same judgement applied one layer
+    # up. Only assert what the profile supports — and it does not support
+    # "whole numbers" for a column that contains decimals.
+    #
+    # Found by running init and check across ninety public datasets.
+    if contract.type == InferredType.INTEGER.value and (column.type_mixture or {}).get("float", 0):
+        contract.type = InferredType.FLOAT.value
 
     # ── presence ──────────────────────────────────────────────────────────────
     if column.null_count == 0:

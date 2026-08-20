@@ -1,0 +1,634 @@
+{
+  "datasets": [
+    {
+      "name": "datasets/1962_2006_walmart_store_openings",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/1962_2006_walmart_store_openings.csv",
+      "bytes": 317460,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/2010_alcohol_consumption_by_country",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/2010_alcohol_consumption_by_country.csv",
+      "bytes": 2613,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/2011_february_aa_flight_paths",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/2011_february_aa_flight_paths.csv",
+      "bytes": 11080,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/2011_us_ag_exports",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/2011_us_ag_exports.csv",
+      "bytes": 5291,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/2014_apple_stock",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/2014_apple_stock.csv",
+      "bytes": 5488,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/2014_us_cities",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/2014_us_cities.csv",
+      "bytes": 131502,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/2015_06_30_precipitation",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/2015_06_30_precipitation.csv",
+      "bytes": 397793,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/2016-weather-data-seattle",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/2016-weather-data-seattle.csv",
+      "bytes": 456160,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/2018_Central_Park_Squirrel_Census_-_Squirrel_Data_20250721",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/2018_Central_Park_Squirrel_Census_-_Squirrel_Data_20250721.csv",
+      "bytes": 747760,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/3d-line1",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/3d-line1.csv",
+      "bytes": 28141,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/3d-mesh-helicopter",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/3d-mesh-helicopter.csv",
+      "bytes": 73767,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/Aids Data",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/Aids%20Data.csv",
+      "bytes": 162883,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/Emissions Data",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/Emissions%20Data.csv",
+      "bytes": 28186,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/Key Macroeconomic Indicators",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/Key%20Macroeconomic%20Indicators.csv",
+      "bytes": 21511,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/Mining-BTC-180",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/Mining-BTC-180.csv",
+      "bytes": 12793,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/Monitory Policy Transmission",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/Monitory%20Policy%20Transmission.csv",
+      "bytes": 16689,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/Move to Canada",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/Move%20to%20Canada.csv",
+      "bytes": 10764,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/US-shooting-incidents",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/US-shooting-incidents.csv",
+      "bytes": 1334713,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/Wage Rigidity Dataset",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/Wage%20Rigidity%20Dataset.csv",
+      "bytes": 47221,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/_3d-line-plot",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/_3d-line-plot.csv",
+      "bytes": 130501,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/amazon-purchases-sample",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/amazon-purchases-sample.csv",
+      "bytes": 301523,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/auto-mpg",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/auto-mpg.csv",
+      "bytes": 10118,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/bubble_chart_tutorial",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/bubble_chart_tutorial.csv",
+      "bytes": 5112,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/candlestick_dataset_2007_2009",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/candlestick_dataset_2007_2009.csv",
+      "bytes": 16048,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/carshare",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/carshare.csv",
+      "bytes": 14443,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/coffee-flavors",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/coffee-flavors.csv",
+      "bytes": 3516,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/cone_plot_data",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/cone_plot_data.csv",
+      "bytes": 923650,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/dash-stock-ticker-demo",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/dash-stock-ticker-demo.csv",
+      "bytes": 429752,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/diabetes-vid",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/diabetes-vid.csv",
+      "bytes": 26682,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/district_density",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/district_density.csv",
+      "bytes": 27913,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/earthquakes-23k",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/earthquakes-23k.csv",
+      "bytes": 833523,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/election",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/election.csv",
+      "bytes": 3510,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/english_french",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/english_french.csv",
+      "bytes": 401427,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/european_turnout",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/european_turnout.csv",
+      "bytes": 2073,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/finance-charts-apple",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/finance-charts-apple.csv",
+      "bytes": 60220,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/fips-unemp-16",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/fips-unemp-16.csv",
+      "bytes": 32336,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/gapminder2007",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/gapminder2007.csv",
+      "bytes": 7117,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/gapminderDataFiveYear",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/gapminderDataFiveYear.csv",
+      "bytes": 82079,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/gapminderDataFiveYear2",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/gapminderDataFiveYear2.csv",
+      "bytes": 104044,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/gapminder_with_codes",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/gapminder_with_codes.csv",
+      "bytes": 105630,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/globe_contours",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/globe_contours.csv",
+      "bytes": 44081,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/histogram_simple",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/histogram_simple.csv",
+      "bytes": 7558,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/hobbs-pearson-trials",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/hobbs-pearson-trials.csv",
+      "bytes": 8955,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/hofstede-cultural-dimensions",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/hofstede-cultural-dimensions.csv",
+      "bytes": 4267,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/imports-85",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/imports-85.csv",
+      "bytes": 25681,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/inset",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/inset.csv",
+      "bytes": 13604,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/iris",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/iris.csv",
+      "bytes": 4601,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/iris-id",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/iris-id.csv",
+      "bytes": 4178,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/job-automation-probability",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/job-automation-probability.csv",
+      "bytes": 108150,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/laucnty16",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/laucnty16.csv",
+      "bytes": 311229,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/minoritymajority",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/minoritymajority.csv",
+      "bytes": 345034,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/monthly-milk-production-pounds",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/monthly-milk-production-pounds.csv",
+      "bytes": 2230,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/mtl2013ternary",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/mtl2013ternary.csv",
+      "bytes": 3665,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/nhl_draft_2013_@thejustinfisher",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/nhl_draft_2013_%40thejustinfisher.csv",
+      "bytes": 20327,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/normal-clusters",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/normal-clusters.csv",
+      "bytes": 44142,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/parcoords_data",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/parcoords_data.csv",
+      "bytes": 145433,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/pbc-event",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/pbc-event.csv",
+      "bytes": 40735,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/polar_dataset",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/polar_dataset.csv",
+      "bytes": 2076,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/salaries-ai-jobs-net",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/salaries-ai-jobs-net.csv",
+      "bytes": 36970,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/simple_feature_dataframe",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/simple_feature_dataframe.csv",
+      "bytes": 142892,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/spinrates",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/spinrates.csv",
+      "bytes": 3298,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/state-population-projections-by-race-sex-age-groups",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/state-population-projections-by-race-sex-age-groups.csv",
+      "bytes": 85106,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/stockdata",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/stockdata.csv",
+      "bytes": 151626,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/streamtube-wind",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/streamtube-wind.csv",
+      "bytes": 1063217,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/subplot",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/subplot.csv",
+      "bytes": 13604,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/subplots",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/subplots.csv",
+      "bytes": 29724,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/supermarket_Sales",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/supermarket_Sales.csv",
+      "bytes": 131568,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/telco-customer-churn-by-IBM",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/telco-customer-churn-by-IBM.csv",
+      "bytes": 977501,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/tesla-stock-price",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/tesla-stock-price.csv",
+      "bytes": 55371,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/tips",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/tips.csv",
+      "bytes": 7943,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/titanic",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/titanic.csv",
+      "bytes": 10909,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/unemployment_data_europe_oecd",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/unemployment_data_europe_oecd.csv",
+      "bytes": 266326,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/us-cities-top-1k",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/us-cities-top-1k.csv",
+      "bytes": 53876,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/us-cities-top-1k-multi-year",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/us-cities-top-1k-multi-year.csv",
+      "bytes": 218481,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/volcano",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/volcano.csv",
+      "bytes": 21045,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/volcano_db",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/volcano_db.csv",
+      "bytes": 136976,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/vortex",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/vortex.csv",
+      "bytes": 162894,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "datasets/winequality-red",
+      "url": "https://raw.githubusercontent.com/plotly/datasets/master/winequality-red.csv",
+      "bytes": 85746,
+      "source": "plotly/datasets",
+      "licence": "MIT"
+    },
+    {
+      "name": "vega-datasets/airports",
+      "url": "https://raw.githubusercontent.com/vega/vega-datasets/main/data/airports.csv",
+      "bytes": 210363,
+      "source": "vega/vega-datasets",
+      "licence": "BSD-3-Clause"
+    },
+    {
+      "name": "vega-datasets/birdstrikes",
+      "url": "https://raw.githubusercontent.com/vega/vega-datasets/main/data/birdstrikes.csv",
+      "bytes": 1223329,
+      "source": "vega/vega-datasets",
+      "licence": "BSD-3-Clause"
+    },
+    {
+      "name": "vega-datasets/disasters",
+      "url": "https://raw.githubusercontent.com/vega/vega-datasets/main/data/disasters.csv",
+      "bytes": 18840,
+      "source": "vega/vega-datasets",
+      "licence": "BSD-3-Clause"
+    },
+    {
+      "name": "vega-datasets/flights-airport",
+      "url": "https://raw.githubusercontent.com/vega/vega-datasets/main/data/flights-airport.csv",
+      "bytes": 65572,
+      "source": "vega/vega-datasets",
+      "licence": "BSD-3-Clause"
+    },
+    {
+      "name": "vega-datasets/github",
+      "url": "https://raw.githubusercontent.com/vega/vega-datasets/main/data/github.csv",
+      "bytes": 21059,
+      "source": "vega/vega-datasets",
+      "licence": "BSD-3-Clause"
+    },
+    {
+      "name": "vega-datasets/la-riots",
+      "url": "https://raw.githubusercontent.com/vega/vega-datasets/main/data/la-riots.csv",
+      "bytes": 7432,
+      "source": "vega/vega-datasets",
+      "licence": "BSD-3-Clause"
+    },
+    {
+      "name": "vega-datasets/seattle-weather",
+      "url": "https://raw.githubusercontent.com/vega/vega-datasets/main/data/seattle-weather.csv",
+      "bytes": 48219,
+      "source": "vega/vega-datasets",
+      "licence": "BSD-3-Clause"
+    },
+    {
+      "name": "vega-datasets/sp500",
+      "url": "https://raw.githubusercontent.com/vega/vega-datasets/main/data/sp500.csv",
+      "bytes": 2305,
+      "source": "vega/vega-datasets",
+      "licence": "BSD-3-Clause"
+    },
+    {
+      "name": "vega-datasets/sp500-2000",
+      "url": "https://raw.githubusercontent.com/vega/vega-datasets/main/data/sp500-2000.csv",
+      "bytes": 415968,
+      "source": "vega/vega-datasets",
+      "licence": "BSD-3-Clause"
+    },
+    {
+      "name": "vega-datasets/species",
+      "url": "https://raw.githubusercontent.com/vega/vega-datasets/main/data/species.csv",
+      "bytes": 1034744,
+      "source": "vega/vega-datasets",
+      "licence": "BSD-3-Clause"
+    },
+    {
+      "name": "vega-datasets/us-employment",
+      "url": "https://raw.githubusercontent.com/vega/vega-datasets/main/data/us-employment.csv",
+      "bytes": 17841,
+      "source": "vega/vega-datasets",
+      "licence": "BSD-3-Clause"
+    },
+    {
+      "name": "vega-datasets/weather",
+      "url": "https://raw.githubusercontent.com/vega/vega-datasets/main/data/weather.csv",
+      "bytes": 121417,
+      "source": "vega/vega-datasets",
+      "licence": "BSD-3-Clause"
+    }
+  ]
+}

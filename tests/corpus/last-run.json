@@ -1,0 +1,1055 @@
+[
+  {
+    "name": "datasets/1962_2006_walmart_store_openings",
+    "rows": 2992,
+    "columns": 16,
+    "same_data": [],
+    "split": [
+      "new_category",
+      "null_rate_exceeded",
+      "null_rate_exceeded",
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/2010_alcohol_consumption_by_country",
+    "rows": 191,
+    "columns": 2,
+    "same_data": [],
+    "split": [
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/2011_february_aa_flight_paths",
+    "rows": 178,
+    "columns": 8,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/2011_us_ag_exports",
+    "rows": 50,
+    "columns": 17,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/2014_apple_stock",
+    "rows": 240,
+    "columns": 2,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/2014_us_cities",
+    "rows": 3228,
+    "columns": 4,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/2015_06_30_precipitation",
+    "rows": 10000,
+    "columns": 5,
+    "same_data": [],
+    "split": [
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/2016-weather-data-seattle",
+    "rows": 24381,
+    "columns": 4,
+    "same_data": [],
+    "split": [
+      "null_words_appeared",
+      "null_words_appeared"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/2018_Central_Park_Squirrel_Census_-_Squirrel_Data_20250721",
+    "rows": 3023,
+    "columns": 31,
+    "same_data": [],
+    "split": [
+      "category_disappeared",
+      "category_disappeared",
+      "new_category",
+      "new_category",
+      "new_category"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/3d-line1",
+    "rows": 601,
+    "columns": 4,
+    "same_data": [],
+    "split": [
+      "range_exceeded",
+      "range_exceeded",
+      "unit_shift_suspected"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/3d-mesh-helicopter",
+    "rows": 2094,
+    "columns": 7,
+    "same_data": [],
+    "split": [
+      "nullability_violated",
+      "nullability_violated",
+      "nullability_violated"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/Aids Data",
+    "rows": 2316,
+    "columns": 5,
+    "same_data": [],
+    "split": [
+      "category_disappeared",
+      "category_disappeared",
+      "category_disappeared",
+      "new_category",
+      "new_category",
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/Emissions Data",
+    "rows": 788,
+    "columns": 4,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/Key Macroeconomic Indicators",
+    "rows": 702,
+    "columns": 5,
+    "same_data": [],
+    "split": [
+      "null_rate_exceeded",
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/Mining-BTC-180",
+    "rows": 179,
+    "columns": 9,
+    "same_data": [],
+    "split": [
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/Monitory Policy Transmission",
+    "rows": 529,
+    "columns": 6,
+    "same_data": [],
+    "split": [
+      "null_rate_exceeded",
+      "range_exceeded",
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/Move to Canada",
+    "rows": 653,
+    "columns": 3,
+    "same_data": [],
+    "split": [
+      "range_exceeded",
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/US-shooting-incidents",
+    "rows": 4999,
+    "columns": 15,
+    "same_data": [],
+    "split": [
+      "new_category",
+      "new_category"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/Wage Rigidity Dataset",
+    "rows": 435,
+    "columns": 11,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/_3d-line-plot",
+    "rows": 1001,
+    "columns": 9,
+    "same_data": [],
+    "split": [
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "unit_shift_suspected"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/amazon-purchases-sample",
+    "rows": 1816,
+    "columns": 8,
+    "same_data": [],
+    "split": [
+      "format_changed",
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/auto-mpg",
+    "rows": 398,
+    "columns": 7,
+    "same_data": [],
+    "split": [
+      "category_disappeared",
+      "new_category",
+      "new_category"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/bubble_chart_tutorial",
+    "rows": 116,
+    "columns": 5,
+    "same_data": [],
+    "split": [
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/candlestick_dataset_2007_2009",
+    "rows": 379,
+    "columns": 4,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/carshare",
+    "rows": 249,
+    "columns": 4,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/coffee-flavors",
+    "rows": 87,
+    "columns": 3,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/cone_plot_data",
+    "rows": 21525,
+    "columns": 6,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/dash-stock-ticker-demo",
+    "rows": 3634,
+    "columns": 15,
+    "same_data": [],
+    "split": [
+      "category_disappeared",
+      "format_changed",
+      "new_category",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/diabetes-vid",
+    "rows": 768,
+    "columns": 9,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/district_density",
+    "rows": 435,
+    "columns": 9,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/earthquakes-23k",
+    "rows": 23412,
+    "columns": 4,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/election",
+    "rows": 58,
+    "columns": 8,
+    "same_data": [],
+    "split": [
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/english_french",
+    "rows": 4556,
+    "columns": 12,
+    "same_data": [],
+    "split": [
+      "category_disappeared",
+      "category_disappeared",
+      "new_category",
+      "new_category"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/european_turnout",
+    "rows": 28,
+    "columns": 10,
+    "same_data": [],
+    "split": [],
+    "skipped": "only 28 rows, too few to split",
+    "error": ""
+  },
+  {
+    "name": "datasets/finance-charts-apple",
+    "rows": 506,
+    "columns": 11,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/fips-unemp-16",
+    "rows": 3219,
+    "columns": 2,
+    "same_data": [],
+    "split": [
+      "excel_serial_suspected",
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/gapminder2007",
+    "rows": 142,
+    "columns": 5,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/gapminderDataFiveYear",
+    "rows": 1704,
+    "columns": 6,
+    "same_data": [],
+    "split": [
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/gapminderDataFiveYear2",
+    "rows": 1704,
+    "columns": 7,
+    "same_data": [],
+    "split": [
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/gapminder_with_codes",
+    "rows": 1704,
+    "columns": 8,
+    "same_data": [],
+    "split": [
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/globe_contours",
+    "rows": 145,
+    "columns": 36,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/histogram_simple",
+    "rows": 500,
+    "columns": 1,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/hobbs-pearson-trials",
+    "rows": 60,
+    "columns": 12,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/hofstede-cultural-dimensions",
+    "rows": 111,
+    "columns": 1,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/imports-85",
+    "rows": 205,
+    "columns": 26,
+    "same_data": [],
+    "split": [
+      "category_disappeared",
+      "category_disappeared",
+      "category_disappeared",
+      "format_changed",
+      "new_category",
+      "new_category",
+      "new_category",
+      "null_words_appeared",
+      "null_words_appeared",
+      "type_changed",
+      "type_changed",
+      "type_changed",
+      "type_contaminated",
+      "type_contaminated"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/inset",
+    "rows": 219,
+    "columns": 6,
+    "same_data": [],
+    "split": [
+      "type_changed",
+      "type_changed",
+      "type_changed"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/iris",
+    "rows": 150,
+    "columns": 5,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/iris-id",
+    "rows": 150,
+    "columns": 6,
+    "same_data": [],
+    "split": [
+      "category_disappeared",
+      "category_disappeared",
+      "new_category",
+      "new_category"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/job-automation-probability",
+    "rows": 702,
+    "columns": 13,
+    "same_data": [],
+    "split": [
+      "range_exceeded",
+      "type_contaminated",
+      "type_contaminated",
+      "type_contaminated"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/laucnty16",
+    "rows": 3219,
+    "columns": 9,
+    "same_data": [],
+    "split": [
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/minoritymajority",
+    "rows": 3143,
+    "columns": 18,
+    "same_data": [],
+    "split": [
+      "category_disappeared",
+      "new_category",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/monthly-milk-production-pounds",
+    "rows": 168,
+    "columns": 2,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/mtl2013ternary",
+    "rows": 58,
+    "columns": 7,
+    "same_data": [],
+    "split": [
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/nhl_draft_2013_@thejustinfisher",
+    "rows": 211,
+    "columns": 16,
+    "same_data": [],
+    "split": [
+      "category_disappeared",
+      "category_disappeared",
+      "category_disappeared",
+      "category_disappeared",
+      "new_category",
+      "new_category",
+      "new_category",
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/normal-clusters",
+    "rows": 400,
+    "columns": 6,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/parcoords_data",
+    "rows": 2577,
+    "columns": 11,
+    "same_data": [],
+    "split": [
+      "category_disappeared"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/pbc-event",
+    "rows": 312,
+    "columns": 26,
+    "same_data": [],
+    "split": [
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/polar_dataset",
+    "rows": 61,
+    "columns": 7,
+    "same_data": [],
+    "split": [
+      "range_exceeded",
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/salaries-ai-jobs-net",
+    "rows": 637,
+    "columns": 11,
+    "same_data": [],
+    "split": [
+      "new_category",
+      "new_category",
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/simple_feature_dataframe",
+    "rows": 750,
+    "columns": 11,
+    "same_data": [],
+    "split": [
+      "category_disappeared",
+      "new_category"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/spinrates",
+    "rows": 168,
+    "columns": 4,
+    "same_data": [],
+    "split": [
+      "category_disappeared",
+      "new_category"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/state-population-projections-by-race-sex-age-groups",
+    "rows": 410,
+    "columns": 1,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/stockdata",
+    "rows": 2306,
+    "columns": 6,
+    "same_data": [],
+    "split": [
+      "range_exceeded",
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/streamtube-wind",
+    "rows": 21525,
+    "columns": 7,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/subplot",
+    "rows": 219,
+    "columns": 6,
+    "same_data": [],
+    "split": [
+      "type_changed",
+      "type_changed",
+      "type_changed"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/subplots",
+    "rows": 685,
+    "columns": 11,
+    "same_data": [],
+    "split": [
+      "range_exceeded",
+      "type_changed",
+      "type_changed",
+      "type_changed",
+      "type_changed",
+      "type_changed",
+      "type_changed",
+      "type_changed",
+      "type_changed"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/supermarket_Sales",
+    "rows": 1000,
+    "columns": 17,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/telco-customer-churn-by-IBM",
+    "rows": 7043,
+    "columns": 21,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/tesla-stock-price",
+    "rows": 757,
+    "columns": 6,
+    "same_data": [],
+    "split": [
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/tips",
+    "rows": 244,
+    "columns": 7,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/titanic",
+    "rows": 156,
+    "columns": 12,
+    "same_data": [],
+    "split": [
+      "category_disappeared",
+      "category_disappeared",
+      "new_category",
+      "type_changed"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/unemployment_data_europe_oecd",
+    "rows": 5732,
+    "columns": 8,
+    "same_data": [],
+    "split": [
+      "category_disappeared",
+      "format_changed",
+      "new_category"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/us-cities-top-1k",
+    "rows": 1000,
+    "columns": 5,
+    "same_data": [],
+    "split": [
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/us-cities-top-1k-multi-year",
+    "rows": 4000,
+    "columns": 6,
+    "same_data": [],
+    "split": [
+      "category_disappeared",
+      "new_category"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/volcano",
+    "rows": 87,
+    "columns": 61,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/volcano_db",
+    "rows": 1571,
+    "columns": 10,
+    "same_data": [],
+    "split": [
+      "category_disappeared",
+      "category_disappeared",
+      "category_disappeared",
+      "new_category",
+      "new_category",
+      "new_category"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/vortex",
+    "rows": 2000,
+    "columns": 6,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "datasets/winequality-red",
+    "rows": 1599,
+    "columns": 12,
+    "same_data": [],
+    "split": [
+      "type_contaminated"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "vega-datasets/airports",
+    "rows": 3376,
+    "columns": 7,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "vega-datasets/birdstrikes",
+    "rows": 10000,
+    "columns": 14,
+    "same_data": [],
+    "split": [
+      "new_category",
+      "new_category",
+      "null_rate_exceeded",
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "vega-datasets/disasters",
+    "rows": 803,
+    "columns": 3,
+    "same_data": [],
+    "split": [
+      "category_disappeared",
+      "new_category"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "vega-datasets/flights-airport",
+    "rows": 5366,
+    "columns": 3,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "vega-datasets/github",
+    "rows": 955,
+    "columns": 2,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "vega-datasets/la-riots",
+    "rows": 63,
+    "columns": 11,
+    "same_data": [],
+    "split": [
+      "category_disappeared"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "vega-datasets/seattle-weather",
+    "rows": 1461,
+    "columns": 6,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "vega-datasets/sp500",
+    "rows": 123,
+    "columns": 2,
+    "same_data": [],
+    "split": [],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "vega-datasets/sp500-2000",
+    "rows": 5105,
+    "columns": 7,
+    "same_data": [],
+    "split": [
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded",
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "vega-datasets/species",
+    "rows": 12360,
+    "columns": 6,
+    "same_data": [],
+    "split": [
+      "category_disappeared",
+      "category_disappeared",
+      "category_disappeared",
+      "category_disappeared",
+      "format_changed",
+      "new_category",
+      "new_category",
+      "new_category",
+      "new_category"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "vega-datasets/us-employment",
+    "rows": 120,
+    "columns": 24,
+    "same_data": [],
+    "split": [
+      "excel_serial_suspected"
+    ],
+    "skipped": "",
+    "error": ""
+  },
+  {
+    "name": "vega-datasets/weather",
+    "rows": 2922,
+    "columns": 7,
+    "same_data": [],
+    "split": [
+      "format_changed",
+      "range_exceeded"
+    ],
+    "skipped": "",
+    "error": ""
+  }
+]

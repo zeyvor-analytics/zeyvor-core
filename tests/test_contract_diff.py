@@ -582,3 +582,24 @@ def test_a_column_with_no_window_is_never_stale():
     )
     report = check([_temporal_profile("2026-08-05 09:00:00")], contract, now=now)
     assert report.ok, "freshness must be opt-in, never assumed"
+
+
+def test_a_mixture_the_contract_already_admits_to_is_not_reported_again():
+    """`known_issues` means "I have decided to live with this".
+
+    Every observation-derived finding honoured that from the start; type
+    contamination did not. So a contract generated from data with one bad row
+    in seven hundred recorded `mixed_types` in `known_issues` and then failed
+    against the very rows it was generated from, on every single run.
+
+    Found by running init and check across ninety public datasets.
+    """
+    profile = profile_of(
+        column_profile(
+            inferred_type=InferredType.DATE,
+            type_mixture={"date": 0.998, "text": 0.002},
+            shapes=[ShapeBucket("####/##/##", 998), ShapeBucket("##:##", 2)],
+        )
+    )
+    report = run(profile, ColumnContract(name="c", type="date", known_issues=["mixed_types"]))
+    assert not report.has(ViolationType.TYPE_CONTAMINATED)

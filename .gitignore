@@ -12,3 +12,4 @@ htmlcov/
 *.duckdb
 *.duckdb.wal
 *.db
+.zeyvor-corpus/

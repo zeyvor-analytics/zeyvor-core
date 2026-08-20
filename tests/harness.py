@@ -52,6 +52,11 @@ def _run(args: list[str], cwd: str) -> subprocess.CompletedProcess:
         cwd=cwd,
         capture_output=True,
         text=True,
+        # `text=True` alone decodes with the platform default, which is cp1252
+        # on a Windows runner and would mangle the mojibake mutation into a
+        # different kind of broken than the one being tested. CI escalates
+        # EncodingWarning to an error precisely to catch this.
+        encoding="utf-8",
         env={**os.environ, "PYTHONPATH": os.path.join(REPO, "src"), "ANTHROPIC_API_KEY": ""},
     )
 
